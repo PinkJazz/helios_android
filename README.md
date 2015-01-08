@@ -1,4 +1,4 @@
-# Barcode Localizer App for Helios Project
+# Video Recorder App for Helios Project
 ==========================================
 
 Android app to integrate with Amazon Web Services - takes video in background and uploads to helios-smart bucket in Amazon S3.
@@ -10,7 +10,7 @@ The compiled APK file HeliosApp.apk is in the directory HeliosApp/bin.
 
 ## Building from sources
 ------------------------
-All the source files, AndroidManifest.xml and res files are available and can be imported in Eclipse using Import -> Android -> Existing Android code into Workspace.
+All the source files, AndroidManifest.xml and res files are available.
 
 The libraries that need to be included are as follows:
 
