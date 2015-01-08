@@ -19,6 +19,6 @@ google-play-services.jar - needs to be referenced as a library project
 Amazon Web Service jars
 =======================
 
-aws-android-sdk-2.1.7-cognito.jar
-aws-android-sdk-2.1.7-core.jar
-aws-android-sdk-2.1.7-s3.jar
+aws-android-sdk-2.1.7-cognito.debug.jar
+aws-android-sdk-2.1.7-core.debug.jar
+aws-android-sdk-2.1.7-s3.debug.jar
