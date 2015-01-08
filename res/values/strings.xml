@@ -1,0 +1,11 @@
+<resources>
+
+    <string name="app_name">Helios</string>
+    <string name="Login">Log in and decode locally</string>
+    <string name="backgroundVideo">Log in and upload video</string>
+    <string name="Logout">Log out</string>
+    <string name="account">Account</string>
+    <string name="unrecoverable_error">Unrecoverable Play Services error</string>
+    <string name="connected">connected to Location Services</string>
+    
+</resources>
