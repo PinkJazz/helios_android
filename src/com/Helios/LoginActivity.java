@@ -97,13 +97,6 @@ public class LoginActivity extends Activity {
             return false;
         }   	
     }
-    
-    /** Called by button in the layout */
-    public void LoginUser(View view) {
-    	localDecode = true;
-    	if(isGooglePlayServicesConnected())
-    		getUsername();
-    }
 
 
     /** Called by button in the layout */
