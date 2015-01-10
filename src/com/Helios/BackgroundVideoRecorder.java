@@ -31,8 +31,10 @@ import android.view.WindowManager.LayoutParams;
 import android.widget.Toast;
 
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
-import com.amazonaws.regions.Regions;
+import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.sqs.AmazonSQS;
+import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
@@ -78,10 +80,12 @@ public class BackgroundVideoRecorder extends Service implements
 	private Location mLocation;
 
 	// used to log in to Amazon Web Services and create client object
-	// to upload to S3
+	// to upload to S3 and send messages to SQS
 	CognitoCachingCredentialsProvider cognitoProvider;
 	Map<String, String> logins = new HashMap<String, String>();
 	AmazonS3Client s3Client;
+	AmazonSQS sqsQueue;
+	String sqsQueueURL;
 
 	@Override
 	public void onCreate() {
@@ -125,6 +129,7 @@ public class BackgroundVideoRecorder extends Service implements
 			mGoogleApiClient.connect();
 
 			doCognitoLogin();
+			setupSQS();
 		}
 
 		if (requestType.equals(REQUEST_TYPE_PAUSE)) {
@@ -167,6 +172,10 @@ public class BackgroundVideoRecorder extends Service implements
 		Log.i(TAG, "Successfully initialized S3 client");
 	}
 
+	private void setupSQS(){
+		sqsQueue = new AmazonSQSClient(cognitoProvider);
+		sqsQueue.setRegion(Config.SQS_QUEUE_REGION);
+	}
 	/**
 	 * 
 	 */
@@ -176,7 +185,7 @@ public class BackgroundVideoRecorder extends Service implements
 					.getLastLocation(mGoogleApiClient);
 		else
 			mLocation = null;
-		new ImageUploader(this, new File(outputFile), s3Client, mLocation,
+		new ImageUploader(this, new File(outputFile), s3Client, sqsQueue, sqsQueueURL, mLocation,
 				cognitoProvider.getCachedIdentityId(), WifiUploadOnly).execute();
 	}
 

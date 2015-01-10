@@ -29,9 +29,13 @@ import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.PutObjectResult;
+import com.amazonaws.services.sqs.AmazonSQS;
 
 /**
  * Display personalized greeting.
@@ -53,6 +57,8 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 	private File video;
 	private boolean isVideo = false;
 	private AmazonS3Client s3Client;
+	private AmazonSQS sqsQueue;
+	private String sqsQueueURL;
 	
 	ImageUploader(Context con, String email, Bitmap bmp, String tok, Location loc, boolean WifiUploadOnly) {
 		this.con = con;		
@@ -64,11 +70,14 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		isVideo = false;
 	}
 
-	ImageUploader(Context con, File videoFile, AmazonS3Client s3Client, Location loc, 
-			String prefix, boolean WifiUploadOnly) {
+	ImageUploader(Context con, File videoFile, AmazonS3Client s3Client, AmazonSQS sqsQueue, 
+			String sqsQueueURL, Location loc, String prefix, boolean WifiUploadOnly) {
 		this.con = con;
 		this.video = videoFile;
 		this.s3Client = s3Client;
+		this.sqsQueue = sqsQueue;
+		this.sqsQueueURL = sqsQueueURL;
+		
 		this.WifiUploadOnly = WifiUploadOnly;
 		this.pic_location = loc;
 		this.KEY_PREFIX = prefix;
@@ -89,7 +98,8 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		// so go ahead with the upload
 		try {
 			if(isVideo){			
-				PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, KEY_PREFIX + "/" + video.getName(), video);
+				String key = KEY_PREFIX + "/" + video.getName();
+				PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, video);
 				if (pic_location != null){ // add latitude & longitude data if available
 					ObjectMetadata met = new ObjectMetadata();
 					Log.v(TAG, "Adding lat:" + pic_location.getLatitude() + " Lon:" + pic_location.getLongitude());
@@ -97,7 +107,9 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 					met.addUserMetadata("longitude", Double.toString(pic_location.getLongitude()));
 					req.setMetadata(met);
 				}
-				s3Client.putObject(req);
+				PutObjectResult putResult = s3Client.putObject(req);
+				if (putResult != null)
+					sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
 			}
 			else{
 				Log.i(TAG, "Upload unsuccessful - image upload to S3 not enabled");
@@ -108,7 +120,17 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 
 			return true;
 		}
-
+		catch (AmazonServiceException ase) {
+            onError("AmazonServiceException", ase);
+            Log.e(TAG, "Error Message:    " + ase.getMessage());
+            Log.e(TAG, "HTTP Status Code: " + ase.getStatusCode());
+            Log.e(TAG, "AWS Error Code:   " + ase.getErrorCode());
+            Log.e(TAG, "Error Type:       " + ase.getErrorType());
+            Log.e(TAG, "Request ID:       " + ase.getRequestId());
+        } catch (AmazonClientException ace) {
+            onError("Caught an AmazonClientException", ace);
+            Log.e(TAG, "Error Message: " + ace.getMessage());
+        }
 		catch (Exception ex) {
 			onError("Following Error occured, please try again. "
 					+ ex.getMessage(), ex);

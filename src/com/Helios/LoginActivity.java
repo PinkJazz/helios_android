@@ -3,8 +3,12 @@ package com.Helios;
 
 import android.accounts.AccountManager;
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.ActivityManager.RunningServiceInfo;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -102,10 +106,53 @@ public class LoginActivity extends Activity {
     /** Called by button in the layout */
     public void captureBackgroundVideo(View view) {
     	localDecode = false;
+    	if(isRecorderRunning(BackgroundVideoRecorder.class)){
+    		showDuplicateRecorderAlert();
+    		return;
+    	}
     	if(isGooglePlayServicesConnected())
     		getUsername();
     }
 
+    private boolean isRecorderRunning(Class<?> serviceClass) {
+    	/* from http://stackoverflow.com/a/5921190
+    	 * used to check if BackgroundVideoRecorder Service is already running
+    	 * when user tries to log in.
+    	 */
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private void showDuplicateRecorderAlert(){
+    	// shows alert dialog box if user tries to log in again while 
+    	// BackgroundVideoRecorder is already running
+    	AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(
+				this);
+ 
+			// set title
+		alertDialogBuilder.setTitle("Duplicate Video Recorder");
+		alertDialogBuilder.setMessage("Video is already being recorded in background. Please stop recording before"
+				+ " attempting to log in again")
+				.setCancelable(true)
+				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+
+		    @Override
+		    public void onClick(DialogInterface dialog, int which) {
+		        // TODO Auto-generated method stub
+		        // Do something
+		        dialog.dismiss();
+		        }
+		    });
+		
+		AlertDialog alertDialog = alertDialogBuilder.create();
+		alertDialog.show();
+    }
+    
     /** Called by button in the layout */
     public void LogoutUser(View view) {
     	if(isGooglePlayServicesConnected() && mToken != null)
