@@ -22,3 +22,4 @@ Amazon Web Service jars
 aws-android-sdk-2.1.7-cognito.debug.jar
 aws-android-sdk-2.1.7-core.debug.jar
 aws-android-sdk-2.1.7-s3.debug.jar
+aws-android-sdk-2.1.7-sqs.debug.jar
