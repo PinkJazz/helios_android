@@ -19,6 +19,12 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 	protected String mEmail;
 	protected String token;
 	
+	public static final String REQUEST_TYPE_PLAY = "RESTART_RECORDING";
+	public static final String REQUEST_TYPE_PAUSE = "PAUSE_RECORDING";
+	public static final String REQUEST_TYPE_START = "START_RECORDING";
+	public static final String REQUEST_TYPE_STOP = "STOP_RECORDING";
+	public static final String REQUEST_TYPE = "REQUEST_TYPE";
+	
 	TokenFetcherTask(LoginActivity activity, String email, String scope) {
 		this.mActivity = activity;
 		this.mScope = scope;
@@ -48,20 +54,20 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 	*/
 		if(token != null){
 			mActivity.setToken(token);			
-			if(mActivity.doLocalDecode()){  // decode Barcode locally
-/*				Intent intent = new Intent(mActivity, BarcodeActivity.class);
+			if(mActivity.doMonitorBluetooth()){  // monitor for Bluetooth beacons
+				Intent intent = new Intent(mActivity, BluetoothMonitorActivity.class);
 				intent.putExtra(LoginActivity.TOKEN_MSG, token);
 				intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
 				mActivity.startActivity(intent);
-	*/			Log.i(TAG, "Local decoding not yet supported with Amazon");
+				Log.i(TAG, "Monitoring for bluetooth beacons");
 			}
 			else{ // start service to upload video to server where the decoding will occur
 				Intent intent = new Intent(mActivity, BackgroundVideoRecorder.class);
 				intent.putExtra(LoginActivity.TOKEN_MSG, token);
 				intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
-				intent.putExtra(BackgroundVideoRecorder.REQUEST_TYPE, BackgroundVideoRecorder.REQUEST_TYPE_START);
+				intent.putExtra(TokenFetcherTask.REQUEST_TYPE, TokenFetcherTask.REQUEST_TYPE_START);
 				mActivity.startService(intent);
-				Log.i(TAG, "Started new BackGroundVideoRecorder with token for " + mEmail);				
+				Log.i(TAG, "Started new BackgroundVideoRecorder with token for " + mEmail);				
 			}
 		}
 	}

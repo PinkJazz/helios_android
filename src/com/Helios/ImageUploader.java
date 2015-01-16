@@ -1,22 +1,8 @@
-/*
- * Copyright 2012 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.Helios;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.InputStream;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -55,10 +41,12 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 	private Location pic_location;
 	private boolean WifiUploadOnly;
 	private File video;
-	private boolean isVideo = false;
 	private AmazonS3Client s3Client;
 	private AmazonSQS sqsQueue;
-	private String sqsQueueURL;
+	private CognitoHelper cognitoHelperObj;
+	
+	private String uploadType;
+	private BeaconInfo beaconInfo;
 	
 	ImageUploader(Context con, String email, Bitmap bmp, String tok, Location loc, boolean WifiUploadOnly) {
 		this.con = con;		
@@ -67,26 +55,43 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		this.token = tok;
 		this.pic_location = loc;
 		this.WifiUploadOnly = WifiUploadOnly;
-		isVideo = false;
+		uploadType = "IMAGE";
 	}
-
-	ImageUploader(Context con, File videoFile, AmazonS3Client s3Client, AmazonSQS sqsQueue, 
-			String sqsQueueURL, Location loc, String prefix, boolean WifiUploadOnly) {
+	
+	ImageUploader(Context con, File videoFile, CognitoHelper cognitoHelper, Location loc, boolean WifiUploadOnly) {
+		// used to upload video file to Amazon S3
 		this.con = con;
 		this.video = videoFile;
-		this.s3Client = s3Client;
-		this.sqsQueue = sqsQueue;
-		this.sqsQueueURL = sqsQueueURL;
+		
+		this.cognitoHelperObj = cognitoHelper;
+		this.s3Client = cognitoHelper.s3Client;
+		this.sqsQueue = cognitoHelper.sqsQueue;
 		
 		this.WifiUploadOnly = WifiUploadOnly;
 		this.pic_location = loc;
-		this.KEY_PREFIX = prefix;
 		
-		isVideo = true;
+		uploadType = "VIDEO";
 	}
-	@Override
+
+	ImageUploader(Context con, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, Location loc, boolean WifiUploadOnly) {
+		// used to upload bluetooth beacon details to Amazon S3
+		this.con = con;
+		
+		this.cognitoHelperObj = cognitoHelper;
+		this.s3Client = cognitoHelper.s3Client;
+		this.sqsQueue = cognitoHelper.sqsQueue;
+		
+		this.beaconInfo = beaconInfo;
+		this.WifiUploadOnly = WifiUploadOnly;
+		this.pic_location = loc;
+		
+		uploadType = "BEACON";
+	}
+
 	protected Boolean doInBackground(Void... params) {
 		// no upload if user wants to upload on wifi only and we are not on Wifi
+		this.KEY_PREFIX = cognitoHelperObj.getIdentityID();		
+
 		if (WifiUploadOnly && !isWifiConnected()){
 			Log.i(TAG, "Upload unsuccessful - not on Wifi");
 			displayToast("Upload unsuccessful - not on Wifi", Toast.LENGTH_LONG);
@@ -97,28 +102,39 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		// we are either on Wifi connection or user is fine with using mobile data
 		// so go ahead with the upload
 		try {
-			if(isVideo){			
-				String key = KEY_PREFIX + "/" + video.getName();
-				PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, video);
-				if (pic_location != null){ // add latitude & longitude data if available
-					ObjectMetadata met = new ObjectMetadata();
+			if(uploadType.contentEquals("VIDEO")){			
+				return uploadVideo();
+			}
+			
+			if(uploadType.contentEquals("BEACON")){
+				Log.i(TAG, "Got identity ID " + KEY_PREFIX);			
+				
+				String key = KEY_PREFIX + "/beacons/" + beaconInfo.getBeaconUniqueKey();
+				ObjectMetadata met = new ObjectMetadata();
+				met.setContentLength(beaconInfo.toString().length());
+				met.setContentType("text/plain");
+				InputStream is = new ByteArrayInputStream(beaconInfo.toString().getBytes());				
+				PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, is, met);
+				
+				if (pic_location != null){ // add latitude & longitude data if available					
 					Log.v(TAG, "Adding lat:" + pic_location.getLatitude() + " Lon:" + pic_location.getLongitude());
 					met.addUserMetadata("latitude", Double.toString(pic_location.getLatitude()));
 					met.addUserMetadata("longitude", Double.toString(pic_location.getLongitude()));
 					req.setMetadata(met);
 				}
+				
 				PutObjectResult putResult = s3Client.putObject(req);
 				if (putResult != null)
 					sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
+				Log.i(TAG, "Upload successful");
+
+				return true;
 			}
 			else{
 				Log.i(TAG, "Upload unsuccessful - image upload to S3 not enabled");
 				displayToast("Upload unsuccessful - image upload to S3 not enabled", Toast.LENGTH_LONG);
 				return false;
 			}
-			Log.i(TAG, "Upload successful");
-
-			return true;
 		}
 		catch (AmazonServiceException ase) {
             onError("AmazonServiceException", ase);
@@ -139,6 +155,24 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		return false;
 	}
 
+	private Boolean uploadVideo() throws AmazonClientException, AmazonServiceException{
+		String key = KEY_PREFIX + "/" + video.getName();
+		PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, video);
+		if (pic_location != null){ // add latitude & longitude data if available
+			ObjectMetadata met = new ObjectMetadata();
+			Log.v(TAG, "Adding lat:" + pic_location.getLatitude() + " Lon:" + pic_location.getLongitude());
+			met.addUserMetadata("latitude", Double.toString(pic_location.getLatitude()));
+			met.addUserMetadata("longitude", Double.toString(pic_location.getLongitude()));
+			req.setMetadata(met);
+		}
+		PutObjectResult putResult = s3Client.putObject(req);
+		if (putResult != null)
+			sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
+		Log.i(TAG, "Upload successful");
+
+		return true;
+	}
+
 	protected void onError(String msg, Exception e) {
 		if (e != null) {
 			Log.e(TAG, "Exception: ", e);
@@ -146,8 +180,6 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		displayToast(msg, Toast.LENGTH_SHORT);; // will be run in UI thread
 
 	}
-
-
 	
 	private boolean isWifiConnected(){
 		ConnectivityManager connectivity = (ConnectivityManager) con.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -180,7 +212,7 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 	
 	private void removeTempVideoFile(){
 		// remove temp video file from phone storage
-		if(isVideo)
+		if(uploadType.contentEquals("VIDEO"))
 			video.delete();
 	}
 }

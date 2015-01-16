@@ -21,6 +21,7 @@ final class Config {
 	static final String S3_BUCKET_NAME = "helios-smart";
 	
 	static long UPLOAD_INTERVAL = 75000;
-	static long MAX_VIDEO_FILE_SIZE = 50000000; 
+	static long MAX_VIDEO_FILE_SIZE = 50000000;
+	static final String PROXIMITY_UUID = "f7826da6-4fa2-4e98-8024-bc5b71e0893e"; 
 
 }

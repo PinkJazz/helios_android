@@ -41,7 +41,7 @@ public class LoginActivity extends Activity {
 	private String mEmail;
     private String mToken;
     
-    private boolean localDecode = false;
+    private boolean monitorBluetooth = false;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,8 +105,8 @@ public class LoginActivity extends Activity {
 
     /** Called by button in the layout */
     public void captureBackgroundVideo(View view) {
-    	localDecode = false;
-    	if(isRecorderRunning(BackgroundVideoRecorder.class)){
+    	monitorBluetooth = false;
+    	if(isServiceRunning(BackgroundVideoRecorder.class)){
     		showDuplicateRecorderAlert();
     		return;
     	}
@@ -114,7 +114,15 @@ public class LoginActivity extends Activity {
     		getUsername();
     }
 
-    private boolean isRecorderRunning(Class<?> serviceClass) {
+    /** Called by button in the layout */
+    public void monitorBluetooth(View view) {
+    	monitorBluetooth = true;
+    	
+    	if(isGooglePlayServicesConnected())
+    		getUsername();
+    }
+
+    private boolean isServiceRunning(Class<?> serviceClass) {
     	/* from http://stackoverflow.com/a/5921190
     	 * used to check if BackgroundVideoRecorder Service is already running
     	 * when user tries to log in.
@@ -259,7 +267,7 @@ public class LoginActivity extends Activity {
         });
     }    
     
-    public boolean doLocalDecode(){
-    	return localDecode;
+    public boolean doMonitorBluetooth(){
+    	return monitorBluetooth;
     }
 }

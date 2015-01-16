@@ -22,6 +22,7 @@ import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.SurfaceHolder;
@@ -31,10 +32,8 @@ import android.view.WindowManager.LayoutParams;
 import android.widget.Toast;
 
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
-import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.sqs.AmazonSQS;
-import com.amazonaws.services.sqs.AmazonSQSClient;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
@@ -58,12 +57,6 @@ public class BackgroundVideoRecorder extends Service implements
 	private int NOTIFICATION_ID = 111;
 	private final String TAG = "Helios_" + getClass().getSimpleName();
 
-	public static final String REQUEST_TYPE = "REQUEST_TYPE";
-	public static final String REQUEST_TYPE_STOP = "STOP_RECORDING";
-	public static final String REQUEST_TYPE_START = "START_RECORDING";
-	public static final String REQUEST_TYPE_PAUSE = "PAUSE_RECORDING";
-	public static final String REQUEST_TYPE_PLAY = "RESTART_RECORDING";
-
 	private String mEmail;
 	private String token;
 	private String outputFile;
@@ -81,12 +74,8 @@ public class BackgroundVideoRecorder extends Service implements
 
 	// used to log in to Amazon Web Services and create client object
 	// to upload to S3 and send messages to SQS
-	CognitoCachingCredentialsProvider cognitoProvider;
-	Map<String, String> logins = new HashMap<String, String>();
-	AmazonS3Client s3Client;
-	AmazonSQS sqsQueue;
-	String sqsQueueURL;
-
+	CognitoHelper cognitoHelperObj;
+	
 	@Override
 	public void onCreate() {
 
@@ -116,11 +105,10 @@ public class BackgroundVideoRecorder extends Service implements
 		// gets email and access token from calling activity
 		mEmail = intent.getStringExtra(LoginActivity.EMAIL_MSG);
 		token = intent.getStringExtra(LoginActivity.TOKEN_MSG);
-		String requestType = intent.getStringExtra(REQUEST_TYPE);
+		String requestType = intent.getStringExtra(TokenFetcherTask.REQUEST_TYPE);
+		Log.v(TAG, "onStartCommand received request " + requestType);		
 
-		Log.v(TAG, "onStartCommand received request " + requestType);
-
-		if (requestType.equals(REQUEST_TYPE_START)) {
+		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_START)) {
 			Log.i(TAG, "Started service for user " + mEmail);
 			createStopPauseNotification();
 			// this is called only on the first creation of this class
@@ -128,25 +116,25 @@ public class BackgroundVideoRecorder extends Service implements
 			startUploadTimer(Config.UPLOAD_INTERVAL);
 			mGoogleApiClient.connect();
 
-			doCognitoLogin();
-			setupSQS();
+	        cognitoHelperObj = new CognitoHelper(this, token);
+	        cognitoHelperObj.doCognitoLogin();
 		}
 
-		if (requestType.equals(REQUEST_TYPE_PAUSE)) {
+		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_PAUSE)) {
 			Log.i(TAG, "Paused recording for user " + mEmail);
 			stopMediaRecorder();
 			createStopPlayNotification();
 			uploadVideo();
 		}
 
-		if (requestType.equals(REQUEST_TYPE_PLAY)) {
+		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_PLAY)) {
 			Log.i(TAG, "Restarted recording for user " + mEmail);
 			createStopPauseNotification();
 			startRecordingVideo(surfHolder);
 			startUploadTimer(Config.UPLOAD_INTERVAL);
 		}
 
-		if (requestType.equals(REQUEST_TYPE_STOP)) {
+		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_STOP)) {
 			Log.i(TAG, "Stopped service for user " + mEmail);
 			// cancel timer and upload video
 			stopMediaRecorder();
@@ -157,25 +145,6 @@ public class BackgroundVideoRecorder extends Service implements
 		return START_STICKY;
 	}
 
-	private void doCognitoLogin() {
-		// log in with Cognito identity provider
-		cognitoProvider = new CognitoCachingCredentialsProvider(this,
-				Config.ACCOUNT_ID, Config.IDENTITY_POOL, Config.UNAUTH_ROLE_ARN,
-				Config.AUTH_ROLE_ARN, Config.COGNITO_REGION);
-		
-		logins.put("accounts.google.com", token);
-		cognitoProvider.withLogins(logins);
-		cognitoProvider.getIdentityId();
-		Log.i(TAG,
-				"Got identity ID " + cognitoProvider.getCachedIdentityId());
-		s3Client = new AmazonS3Client(cognitoProvider);
-		Log.i(TAG, "Successfully initialized S3 client");
-	}
-
-	private void setupSQS(){
-		sqsQueue = new AmazonSQSClient(cognitoProvider);
-		sqsQueue.setRegion(Config.SQS_QUEUE_REGION);
-	}
 	/**
 	 * 
 	 */
@@ -185,17 +154,16 @@ public class BackgroundVideoRecorder extends Service implements
 					.getLastLocation(mGoogleApiClient);
 		else
 			mLocation = null;
-		new ImageUploader(this, new File(outputFile), s3Client, sqsQueue, sqsQueueURL, mLocation,
-				cognitoProvider.getCachedIdentityId(), WifiUploadOnly).execute();
+		new ImageUploader(this, new File(outputFile), cognitoHelperObj, mLocation, WifiUploadOnly).execute();
 	}
 
 	private void createStopPauseNotification() {
 
 		PendingIntent stopIntent = PendingIntent
-				.getService(this, 0, getIntent(REQUEST_TYPE_STOP),
+				.getService(this, 0, getIntent(TokenFetcherTask.REQUEST_TYPE_STOP),
 						PendingIntent.FLAG_CANCEL_CURRENT);
 		PendingIntent pauseIntent = PendingIntent.getService(this, 1,
-				getIntent(REQUEST_TYPE_PAUSE),
+				getIntent(TokenFetcherTask.REQUEST_TYPE_PAUSE),
 				PendingIntent.FLAG_CANCEL_CURRENT);
 
 		// Start foreground service to avoid unexpected kill
@@ -210,10 +178,10 @@ public class BackgroundVideoRecorder extends Service implements
 	private void createStopPlayNotification() {
 
 		PendingIntent stopIntent = PendingIntent
-				.getService(this, 0, getIntent(REQUEST_TYPE_STOP),
+				.getService(this, 0, getIntent(TokenFetcherTask.REQUEST_TYPE_STOP),
 						PendingIntent.FLAG_CANCEL_CURRENT);
 		PendingIntent playIntent = PendingIntent
-				.getService(this, 2, getIntent(REQUEST_TYPE_PLAY),
+				.getService(this, 2, getIntent(TokenFetcherTask.REQUEST_TYPE_PLAY),
 						PendingIntent.FLAG_CANCEL_CURRENT);
 
 		// Start foreground service to avoid unexpected kill
@@ -227,7 +195,7 @@ public class BackgroundVideoRecorder extends Service implements
 
 	private Intent getIntent(String requestType) {
 		Intent intent = new Intent(this, BackgroundVideoRecorder.class);
-		intent.putExtra(REQUEST_TYPE, requestType);
+		intent.putExtra(TokenFetcherTask.REQUEST_TYPE, requestType);
 		intent.putExtra(LoginActivity.TOKEN_MSG, token);
 		intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
 
