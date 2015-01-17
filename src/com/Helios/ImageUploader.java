@@ -58,10 +58,11 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		uploadType = "IMAGE";
 	}
 	
-	ImageUploader(Context con, File videoFile, CognitoHelper cognitoHelper, Location loc, boolean WifiUploadOnly) {
+	ImageUploader(Context con, String mEmail, File videoFile, CognitoHelper cognitoHelper, Location loc, boolean WifiUploadOnly) {
 		// used to upload video file to Amazon S3
 		this.con = con;
 		this.video = videoFile;
+		this.mEmail = mEmail;
 		
 		this.cognitoHelperObj = cognitoHelper;
 		this.s3Client = cognitoHelper.s3Client;
@@ -73,9 +74,10 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		uploadType = "VIDEO";
 	}
 
-	ImageUploader(Context con, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, boolean WifiUploadOnly) {
+	ImageUploader(Context con, String mEmail, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, boolean WifiUploadOnly) {
 		// used to upload bluetooth beacon details to Amazon S3
 		this.con = con;
+		this.mEmail = mEmail;
 		
 		this.cognitoHelperObj = cognitoHelper;
 		this.s3Client = cognitoHelper.s3Client;
@@ -180,7 +182,9 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 	}
 
 	private void sendSQSMessage(String key) {
-		 // sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
+		String msg = "cognito#"+cognitoHelperObj.getIdentityID()+"#"+mEmail;
+		sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
+		sqsQueue.sendMessage(Config.SQS_QUEUE_URL, msg);  
 	}
 
 	protected void onError(String msg, Exception e) {

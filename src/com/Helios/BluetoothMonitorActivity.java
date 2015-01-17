@@ -205,7 +205,7 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 			if (isBeaconUploadable(beaconInfo)) {
 				Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
 				discoveredBeacons.put(beaconID, beaconInfo);
-				new ImageUploader(this, cognitoHelperObj, beaconInfo, true).execute();
+				new ImageUploader(this, mEmail, cognitoHelperObj, beaconInfo, true).execute();
 			}
 		}
 	}

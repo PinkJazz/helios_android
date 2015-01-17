@@ -154,7 +154,7 @@ public class BackgroundVideoRecorder extends Service implements
 					.getLastLocation(mGoogleApiClient);
 		else
 			mLocation = null;
-		new ImageUploader(this, new File(outputFile), cognitoHelperObj, mLocation, WifiUploadOnly).execute();
+		new ImageUploader(this, mEmail, new File(outputFile), cognitoHelperObj, mLocation, WifiUploadOnly).execute();
 	}
 
 	private void createStopPauseNotification() {
