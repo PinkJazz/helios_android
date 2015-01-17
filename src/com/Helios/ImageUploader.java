@@ -73,7 +73,7 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		uploadType = "VIDEO";
 	}
 
-	ImageUploader(Context con, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, Location loc, boolean WifiUploadOnly) {
+	ImageUploader(Context con, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, boolean WifiUploadOnly) {
 		// used to upload bluetooth beacon details to Amazon S3
 		this.con = con;
 		
@@ -83,7 +83,7 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		
 		this.beaconInfo = beaconInfo;
 		this.WifiUploadOnly = WifiUploadOnly;
-		this.pic_location = loc;
+		this.pic_location = beaconInfo.getLocation();
 		
 		uploadType = "BEACON";
 	}
@@ -107,28 +107,7 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 			}
 			
 			if(uploadType.contentEquals("BEACON")){
-				Log.i(TAG, "Got identity ID " + KEY_PREFIX);			
-				
-				String key = KEY_PREFIX + "/beacons/" + beaconInfo.getBeaconUniqueKey();
-				ObjectMetadata met = new ObjectMetadata();
-				met.setContentLength(beaconInfo.toString().length());
-				met.setContentType("text/plain");
-				InputStream is = new ByteArrayInputStream(beaconInfo.toString().getBytes());				
-				PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, is, met);
-				
-				if (pic_location != null){ // add latitude & longitude data if available					
-					Log.v(TAG, "Adding lat:" + pic_location.getLatitude() + " Lon:" + pic_location.getLongitude());
-					met.addUserMetadata("latitude", Double.toString(pic_location.getLatitude()));
-					met.addUserMetadata("longitude", Double.toString(pic_location.getLongitude()));
-					req.setMetadata(met);
-				}
-				
-				PutObjectResult putResult = s3Client.putObject(req);
-				if (putResult != null)
-					sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
-				Log.i(TAG, "Upload successful");
-
-				return true;
+				return uploadBeacon();
 			}
 			else{
 				Log.i(TAG, "Upload unsuccessful - image upload to S3 not enabled");
@@ -155,8 +134,35 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		return false;
 	}
 
+	private Boolean uploadBeacon() throws AmazonClientException, AmazonServiceException {
+		// uploads info regarding monitored beacon to S3 and sends a message to SQS
+		
+		Log.i(TAG, "Got identity ID " + KEY_PREFIX);
+		
+		String key = KEY_PREFIX + "/" + Config.BEACON_FOLDER + "/" + beaconInfo.getBeaconUniqueKey() + "/" + beaconInfo.timestamp;
+		ObjectMetadata met = new ObjectMetadata();
+		met.setContentLength(beaconInfo.toString().length());
+		met.setContentType("text/plain");
+		InputStream is = new ByteArrayInputStream(beaconInfo.toString().getBytes());
+		PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, is, met);
+		
+		if (pic_location != null){ // add latitude & longitude data if available					
+			Log.v(TAG, "Adding lat:" + pic_location.getLatitude() + " Lon:" + pic_location.getLongitude());
+			met.addUserMetadata("latitude", Double.toString(pic_location.getLatitude()));
+			met.addUserMetadata("longitude", Double.toString(pic_location.getLongitude()));
+			req.setMetadata(met);
+		}
+		
+		PutObjectResult putResult = s3Client.putObject(req);
+		if (putResult != null)
+			sendSQSMessage(key);
+		Log.i(TAG, "Upload successful");
+
+		return true;
+	}
+
 	private Boolean uploadVideo() throws AmazonClientException, AmazonServiceException{
-		String key = KEY_PREFIX + "/" + video.getName();
+		String key = KEY_PREFIX + "/videos/" + video.getName();
 		PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, video);
 		if (pic_location != null){ // add latitude & longitude data if available
 			ObjectMetadata met = new ObjectMetadata();
@@ -167,10 +173,14 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		}
 		PutObjectResult putResult = s3Client.putObject(req);
 		if (putResult != null)
-			sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
+			sendSQSMessage(key);
 		Log.i(TAG, "Upload successful");
 
 		return true;
+	}
+
+	private void sendSQSMessage(String key) {
+		 // sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
 	}
 
 	protected void onError(String msg, Exception e) {
