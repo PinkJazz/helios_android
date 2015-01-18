@@ -50,8 +50,6 @@ public class BackgroundVideoRecorder extends Service implements
 	private MediaRecorder mediaRecorder = null;
 	private SurfaceHolder surfHolder = null;
 
-	// flag to control if we use mobile data to upload
-	private boolean WifiUploadOnly = true;
 	private static boolean RECORD_AUDIO = false;
 
 	private int NOTIFICATION_ID = 111;
@@ -118,6 +116,8 @@ public class BackgroundVideoRecorder extends Service implements
 
 	        cognitoHelperObj = new CognitoHelper(this, token);
 	        cognitoHelperObj.doCognitoLogin();
+			if(!Config.WiFiUploadOnly || Helpers.isWifiConnected(this))
+				cognitoHelperObj.sendCognitoMessage(mEmail);
 		}
 
 		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_PAUSE)) {
@@ -154,7 +154,7 @@ public class BackgroundVideoRecorder extends Service implements
 					.getLastLocation(mGoogleApiClient);
 		else
 			mLocation = null;
-		new ImageUploader(this, mEmail, new File(outputFile), cognitoHelperObj, mLocation, WifiUploadOnly).execute();
+		new ImageUploader(this, mEmail, new File(outputFile), cognitoHelperObj, mLocation, Config.WiFiUploadOnly).execute();
 	}
 
 	private void createStopPauseNotification() {

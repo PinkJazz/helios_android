@@ -10,6 +10,7 @@ class BeaconInfo {
 	long timestamp;
 	private Location mLocation;
 	Beacon beacon;
+	String friendlyName = "NONE";
 	
 	BeaconInfo(Beacon beacon, Location mLoc){
 		this.beacon = beacon;
@@ -22,10 +23,11 @@ class BeaconInfo {
 		mLocation = mLoc;
 	}
 	
-	BeaconInfo(String proximityUUID, int major, int minor){
+	BeaconInfo(String proximityUUID, int major, int minor, String friendlyName){
 		this.proximityUUID = proximityUUID;
 		this.major = major;
 		this.minor = minor;
+		this.friendlyName = friendlyName;
 	}
 
 	String getBeaconUniqueKey(){
@@ -37,6 +39,8 @@ class BeaconInfo {
 		sb.append("Timestamp = " + timestamp + "\n");
 		sb.append("Latitude = " + getLocation().getLatitude() + ", Longitude = " + getLocation().getLongitude() + "\n");
 		sb.append("Proximity = " + getProximity() + "\n");
+		sb.append("Friendly Name = " + friendlyName + "\n");
+		
 		return sb.toString();
 	}
 	

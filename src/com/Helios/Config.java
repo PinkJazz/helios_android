@@ -27,5 +27,7 @@ final class Config {
 	static final String PROXIMITY_UUID = "f7826da6-4fa2-4e98-8024-bc5b71e0893e"; 
 	static final String BEACON_FOLDER = "beacons";
 	static final String BEACON_LIST = "/" + BEACON_FOLDER + "/beacons.txt";
+	
+	static boolean WiFiUploadOnly = true;
 
 }

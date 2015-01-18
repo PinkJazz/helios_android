@@ -57,4 +57,14 @@ class CognitoHelper {
 		String id = cognitoProvider.getCachedIdentityId(); 
 		return (id == null) ? cognitoProvider.getIdentityId() : id;			
 	}
+	
+	void sendCognitoMessage(final String mEmail){
+		// send msg to SQS queue so server component can match Cognito ID to email address
+		new Thread(new Runnable(){
+			public void run(){
+				String msg = "cognito#" + getIdentityID() + "#" + mEmail;
+				sqsQueue.sendMessage(Config.SQS_QUEUE_URL, msg);				
+			}
+		}).start();
+	}
 }

@@ -59,10 +59,11 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 	private Location mLocation;
 
 	private List<TextView> textViews = new ArrayList<TextView>();
+	private TextView headerTextview;
 	private Map<String, BeaconInfo> discoveredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, BeaconInfo> monitoredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, TextView> beaconDisplay = new HashMap<String, TextView>();
-
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -81,13 +82,17 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 
 		cognitoHelperObj = new CognitoHelper(this, mToken);
 		cognitoHelperObj.doCognitoLogin();
-
+		if(!Config.WiFiUploadOnly || Helpers.isWifiConnected(this))
+			cognitoHelperObj.sendCognitoMessage(mEmail);
 		// add displays to show beacon location
 
 		textViews.add((TextView) findViewById(R.id.tv1));
 		textViews.add((TextView) findViewById(R.id.tv2));
 		textViews.add((TextView) findViewById(R.id.tv3));
+		textViews.add((TextView) findViewById(R.id.tv4));
+		textViews.add((TextView) findViewById(R.id.tv5));
 
+		headerTextview = (TextView) findViewById(R.id.header);
 		// download list of beacons belonging to this user
 		new Thread(new BeaconListDownloader()).start();
 	}
@@ -165,12 +170,15 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 				public void onServiceBound() {
 					try {
 						beaconManager.startRanging();
+						headerTextview.setText("Monitoring " + monitoredBeacons.size() + " beacons");
 					} catch (RemoteException e) {
+						Log.e(TAG, e.getMessage());
 						e.printStackTrace();
 					}
 				}
 			});
 		} catch (RemoteException e) {
+			Log.e(TAG, e.getMessage());
 			throw new IllegalStateException(e);
 		}
 	}
@@ -199,13 +207,15 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 			if (!monitoredBeacons.containsKey(beaconID))
 				continue;
 
+			String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
 			updateTextView(beaconDisplay.get(beaconID),
-					beaconUniqueId + " - " + prox + " RSSI - " + beaconInfo.getRSSI());
+					beaconUniqueId + " " + friendlyName + " - " + prox + " RSSI - " + beaconInfo.getRSSI());
 
 			if (isBeaconUploadable(beaconInfo)) {
+				beaconInfo.friendlyName = friendlyName;
 				Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
 				discoveredBeacons.put(beaconID, beaconInfo);
-				new ImageUploader(this, mEmail, cognitoHelperObj, beaconInfo, true).execute();
+				new ImageUploader(this, mEmail, cognitoHelperObj, beaconInfo, Config.WiFiUploadOnly).execute();
 			}
 		}
 	}
@@ -231,10 +241,8 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 				return false;
 		} else {
 			// proximity indicator has changed
-			// we assume if proximity indicator changes and the distance also
-			// changed
-			// we have moved but object has not so no need to upload its
-			// location
+			// we assume if proximity indicator changes and the distance also changed
+			// we have moved but object has not so no need to upload its location
 			if (dist > 10)
 				return false;
 			else {
@@ -319,6 +327,7 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 		}
 
 		public void run() {
+			headerTextview.setText("Downloading beacons to monitor. Please wait...");
 			String KEY_PREFIX = cognitoHelperObj.getIdentityID();
 			String key = KEY_PREFIX + Config.BEACON_LIST;
 
@@ -329,21 +338,22 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 				BufferedReader reader = new BufferedReader(new InputStreamReader(istream));
 
 				while ((line = reader.readLine()) != null) {
-					Scanner sc = new Scanner(line).useDelimiter("\\s*,\\s*");
-					String proxUUID = sc.next();
-					int major = sc.nextInt();
-					int minor = sc.nextInt();
-					BeaconInfo beac = new BeaconInfo(proxUUID, major, minor);
+					String [] beaconDetails = line.split("\\s*,\\s*");
+					BeaconInfo beac = new BeaconInfo(beaconDetails[0], Integer.valueOf(beaconDetails[1]), 
+							Integer.valueOf(beaconDetails[2]), beaconDetails[3]);
 					monitoredBeacons.put(beac.getBeaconUniqueKey(), beac);
+					
+					Log.i(TAG_DOWNLOAD, "Monitoring beacon " + beaconDetails[0] + " " + Integer.valueOf(beaconDetails[1]) + " " + 
+							Integer.valueOf(beaconDetails[2]) + " " + beaconDetails[3]);					
 					Log.i(TAG_DOWNLOAD, "Added beacon " + beac.getBeaconUniqueKey());
 				}
 				istream.close();
 			} catch (AmazonServiceException ase) {
-				Log.i(TAG_DOWNLOAD, key + " file could be missing or invalid " + ase.getMessage());
+				Log.i(TAG_DOWNLOAD, key + " file could be missing or invalid - " + ase.getMessage());
 			} catch (AmazonClientException ace) {
-				Log.i(TAG_DOWNLOAD, key + " file could be missing or invalid " + ace.getMessage());
+				Log.i(TAG_DOWNLOAD, key + " file could be missing or invalid - " + ace.getMessage());
 			} catch (IOException ioe) {
-				Log.e(TAG_DOWNLOAD, key + " file could be missing or invalid " + ioe.getMessage());
+				Log.e(TAG_DOWNLOAD, key + " file could be missing or invalid - " + ioe.getMessage());
 			}
 			// initialize beacon manager on UI thread because Kontakt.io SDK
 			// requires this

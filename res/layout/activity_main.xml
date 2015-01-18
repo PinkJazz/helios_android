@@ -6,29 +6,52 @@
     tools:context="com.Helios.BluetoothMonitorActivity" >
 
     <TextView
-        android:id = "@+id/Hello"
+        android:id = "@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" 
+        android:layout_marginBottom="30dp"       
+        android:text="Helios Project - Bluetooth beacon monitor" />
+        
+    <TextView
+        android:id = "@+id/header"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello from Bluetooth Monitor" />
+        android:layout_below="@id/title"
+        android:layout_marginBottom="30dp"
+        android:text="Tracking 0 beacons" />
     <TextView
         android:id = "@+id/tv1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@id/Hello"
-        android:text="Test text 1" />
+        android:layout_below="@id/header"
+        android:text="" />
     
     <TextView
         android:id = "@+id/tv2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/tv1"
-        android:text="Test text 2" />
+        android:text="" />
     
     <TextView
         android:id = "@+id/tv3"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/tv2"
-        android:text="Test text 3" />
+        android:text="" />
+
+    <TextView
+        android:id = "@+id/tv4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv3"
+        android:text="" />
+
+    <TextView
+        android:id = "@+id/tv5"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv4"
+        android:text="" />
     
 </RelativeLayout>

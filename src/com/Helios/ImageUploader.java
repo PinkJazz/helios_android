@@ -94,7 +94,7 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		// no upload if user wants to upload on wifi only and we are not on Wifi
 		this.KEY_PREFIX = cognitoHelperObj.getIdentityID();		
 
-		if (WifiUploadOnly && !isWifiConnected()){
+		if (WifiUploadOnly && !Helpers.isWifiConnected(con)){
 			Log.i(TAG, "Upload unsuccessful - not on Wifi");
 			displayToast("Upload unsuccessful - not on Wifi", Toast.LENGTH_LONG);
 			// TODO: change this so it retries later instead of dropping the video
@@ -182,9 +182,7 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 	}
 
 	private void sendSQSMessage(String key) {
-		String msg = "cognito#"+cognitoHelperObj.getIdentityID()+"#"+mEmail;
 		sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
-		sqsQueue.sendMessage(Config.SQS_QUEUE_URL, msg);  
 	}
 
 	protected void onError(String msg, Exception e) {
@@ -194,24 +192,7 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		displayToast(msg, Toast.LENGTH_SHORT);; // will be run in UI thread
 
 	}
-	
-	private boolean isWifiConnected(){
-		ConnectivityManager connectivity = (ConnectivityManager) con.getSystemService(Context.CONNECTIVITY_SERVICE);
-        //If connectivity object is not null
-        if (connectivity != null) {
-            //Get network info - WIFI internet access
-            NetworkInfo info = connectivity.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
- 
-            if (info != null) {
-                //Look for whether device is currently connected to WIFI network
-                if (info.isConnected()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-	}
-	
+		
 	private void displayToast(final String text, final int toast_length){
 		// helper method uses the main thread to display a toast
 		// we use this because if this class is used by a Service
