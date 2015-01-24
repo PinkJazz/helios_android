@@ -67,7 +67,8 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 				intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
 				intent.putExtra(TokenFetcherTask.REQUEST_TYPE, TokenFetcherTask.REQUEST_TYPE_START);
 				mActivity.startService(intent);
-				Log.i(TAG, "Started new BackgroundVideoRecorder with token for " + mEmail);				
+				Log.i(TAG, "Started new BackgroundVideoRecorder with token for " + mEmail);
+				mActivity.finish();
 			}
 		}
 	}
@@ -78,11 +79,7 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 	 * away.
 	 */
 	protected String fetchToken() throws IOException {
-		/**
-		 * Contacts the user info server to get the profile of the user and
-		 * extracts the first name of the user from the profile. In order to
-		 * authenticate with the user info server the method first fetches an
-		 * access token from Google Play services.
+		/** the method fetches an access token from Google Play services.
 		 * 
 		 * @throws IOException
 		 *             if communication with user info server failed.
@@ -90,7 +87,7 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 		try {
 			Log.i(TAG, "Trying to get token for scope " + mScope + " for user " + mEmail);
 			String token = GoogleAuthUtil.getToken(mActivity, mEmail, mScope); 
-			Log.i(TAG, "Got token for scope " + mScope + " for user " + mEmail);
+			Log.i(TAG, "Got token for scope " + mScope + " for user " + mEmail);		
 			mActivity.resetEmail();
 			return token;
 			

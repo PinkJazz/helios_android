@@ -85,15 +85,13 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 		if(!Config.WiFiUploadOnly || Helpers.isWifiConnected(this))
 			cognitoHelperObj.sendCognitoMessage(mEmail);
 		// add displays to show beacon location
-
 		textViews.add((TextView) findViewById(R.id.tv1));
 		textViews.add((TextView) findViewById(R.id.tv2));
 		textViews.add((TextView) findViewById(R.id.tv3));
 		textViews.add((TextView) findViewById(R.id.tv4));
 		textViews.add((TextView) findViewById(R.id.tv5));
-
 		headerTextview = (TextView) findViewById(R.id.header);
-		// download list of beacons belonging to this user
+	// download list of beacons belonging to this user
 		new Thread(new BeaconListDownloader()).start();
 	}
 
@@ -328,7 +326,15 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 
 		public void run() {
 			headerTextview.setText("Downloading beacons to monitor. Please wait...");
-			String KEY_PREFIX = cognitoHelperObj.getIdentityID();
+			String KEY_PREFIX = "";
+			try{
+				KEY_PREFIX = cognitoHelperObj.getIdentityID();
+			}
+			catch(Exception e){
+				displayToast("Unrecoverable error when logging into Amazon cognito", Toast.LENGTH_LONG);
+				Log.d(TAG, "Cognito Login error - " + e.getMessage());
+				BluetoothMonitorActivity.this.finish();
+			}
 			String key = KEY_PREFIX + Config.BEACON_LIST;
 
 			String line;

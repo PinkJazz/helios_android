@@ -6,6 +6,7 @@ import java.util.Map;
 import android.content.Context;
 import android.util.Log;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.CognitoCachingCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.sqs.AmazonSQSClient;
@@ -31,10 +32,12 @@ class CognitoHelper {
     
 	void doCognitoLogin() {
 		// log in with Cognito identity provider
-		cognitoProvider = new CognitoCachingCredentialsProvider(con,
+		/*cognitoProvider = new CognitoCachingCredentialsProvider(con,
 				Config.ACCOUNT_ID, Config.IDENTITY_POOL, Config.UNAUTH_ROLE_ARN,
 				Config.AUTH_ROLE_ARN, Config.COGNITO_REGION);
-		
+		*/
+		cognitoProvider = new CognitoCachingCredentialsProvider(con, Config.IDENTITY_POOL, Config.COGNITO_REGION);
+	
 		cognitoProvider.clear();
 		logins.put("accounts.google.com", token);
 		cognitoProvider.withLogins(logins);
@@ -63,7 +66,13 @@ class CognitoHelper {
 		new Thread(new Runnable(){
 			public void run(){
 				String msg = "cognito#" + getIdentityID() + "#" + mEmail;
-				sqsQueue.sendMessage(Config.SQS_QUEUE_URL, msg);				
+				try{
+					sqsQueue.sendMessage(Config.SQS_QUEUE_URL, msg);	
+					Log.d(TAG, "Sent " + msg + " to SQS queue");
+				}
+				catch(Exception e){
+					Log.d(TAG, "Exception when sending message to SQS queue " + e.getMessage());
+				}
 			}
 		}).start();
 	}
