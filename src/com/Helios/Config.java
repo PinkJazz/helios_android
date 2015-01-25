@@ -26,6 +26,10 @@ final class Config {
 	static final String BEACON_FOLDER = "beacons";
 	static final String BEACON_LIST = "/" + BEACON_FOLDER + "/beacons.txt";
 	
+	static final int STATIC_BEACON_MAJOR_ID_LOWER_BOUND = 35000;
+	static final int STATIC_BEACON_MAJOR_ID_UPPER_BOUND = 40000;
+	static final int STATIC_BEACON_OBSERVATION_LAG = 1000;
+	
 	static boolean WiFiUploadOnly = true;
-
+	static boolean DEBUG_SQS_ENABLED = false; // should be true unless we are debugging
 }

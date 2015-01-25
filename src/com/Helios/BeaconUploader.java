@@ -1,12 +1,14 @@
 package com.Helios;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.InputStream;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,10 +23,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 
-/**
- * Display personalized greeting.
- */
-public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
+class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
     private final String TAG = "Helios_" + getClass().getSimpleName(); 
 	protected Context con;
 
@@ -34,41 +33,41 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 	private static Handler handler = new Handler(Looper.getMainLooper());
 		
 	protected String mEmail;
-	protected Bitmap img;
 	protected String token;
-	private Location pic_location;
 	private boolean WifiUploadOnly;
-	private File video;
+
 	private AmazonS3Client s3Client;
 	private AmazonSQSClient sqsQueue;
 	private CognitoHelper cognitoHelperObj;
 	
-	private String uploadType;
-	
-	ImageUploader(Context con, String email, Bitmap bmp, String tok, Location loc, boolean WifiUploadOnly) {
-		this.con = con;		
-		this.mEmail = email;
-		this.img = bmp;
-		this.token = tok;
-		this.pic_location = loc;
-		this.WifiUploadOnly = WifiUploadOnly;
-		uploadType = "IMAGE";
-	}
-	
-	ImageUploader(Context con, String mEmail, File videoFile, CognitoHelper cognitoHelper, Location loc, boolean WifiUploadOnly) {
-		// used to upload video file to Amazon S3
+	private BeaconInfo beaconInfo;
+	Set<BeaconInfo> staticBeacons = new HashSet<BeaconInfo>();
+
+	BeaconUploader(Context con, String mEmail, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, 
+			Map<String, BeaconInfo> staticBeacons, long observationTime, boolean WifiUploadOnly) {
+		// used to upload bluetooth beacon details to Amazon S3
 		this.con = con;
-		this.video = videoFile;
 		this.mEmail = mEmail;
 		
 		this.cognitoHelperObj = cognitoHelper;
 		this.s3Client = cognitoHelper.s3Client;
 		this.sqsQueue = cognitoHelper.sqsQueue;
 		
+		this.beaconInfo = beaconInfo;
 		this.WifiUploadOnly = WifiUploadOnly;
-		this.pic_location = loc;
+		getValidStaticBeacons(beaconInfo, staticBeacons, observationTime);
 		
-		uploadType = "VIDEO";
+	}
+	
+	private Set<BeaconInfo> getValidStaticBeacons(BeaconInfo observedBeacon, Map<String, BeaconInfo> staticBeacons, long observationTime){
+		
+		for(BeaconInfo beacon: staticBeacons.values()){			
+			// only add static beacons observed less than a second before observing the beacon we upload
+			if (beacon.getTimestamp() > observationTime - 1000)
+				this.staticBeacons.add(beacon);
+		}
+		
+		return this.staticBeacons;
 	}
 
 	protected Boolean doInBackground(Void... params) {
@@ -78,23 +77,13 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 		if (WifiUploadOnly && !Helpers.isWifiConnected(con)){
 			Log.i(TAG, "Upload unsuccessful - not on Wifi");
 			Helpers.displayToast(handler, con, "Upload unsuccessful - not on Wifi", Toast.LENGTH_LONG);
-			// TODO: change this so it retries later instead of dropping the video
-			removeTempVideoFile();
 			return false;
 		}
 		// we are either on Wifi connection or user is fine with using mobile data
 		// so go ahead with the upload
 		try {
-			if(uploadType.contentEquals("VIDEO")){			
-				return uploadVideo();
-			}
-			
-			else{
-				Log.i(TAG, "Upload unsuccessful - image upload to S3 not enabled");
-				Helpers.displayToast(handler, con, "Upload unsuccessful - image upload to S3 not enabled", Toast.LENGTH_LONG);
-				return false;
-			}
-		}
+				return uploadBeacon();
+			}		
 		catch (AmazonServiceException ase) {
             onError("AmazonServiceException", ase);
             Log.e(TAG, "Error Message:    " + ase.getMessage());
@@ -110,23 +99,35 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 			onError("Following Error occured, please try again. "
 					+ ex.getMessage(), ex);
 		}
-		removeTempVideoFile();
 		return false;
 	}
 
-	private Boolean uploadVideo() throws AmazonClientException, AmazonServiceException{
-		String key = KEY_PREFIX + "/videos/" + video.getName();
-		PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, video);
-		if (pic_location != null){ // add latitude & longitude data if available
-			ObjectMetadata met = new ObjectMetadata();
-			Log.v(TAG, "Adding lat:" + pic_location.getLatitude() + " Lon:" + pic_location.getLongitude());
-			met.addUserMetadata("latitude", Double.toString(pic_location.getLatitude()));
-			met.addUserMetadata("longitude", Double.toString(pic_location.getLongitude()));
-			req.setMetadata(met);
+	private Boolean uploadBeacon() throws AmazonClientException, AmazonServiceException {
+		// uploads info regarding monitored beacon to S3 and sends a message to SQS
+		
+		Log.i(TAG, "Got identity ID " + KEY_PREFIX);
+		
+		String key = KEY_PREFIX + "/" + Config.BEACON_FOLDER + "/" + beaconInfo.getBeaconUniqueKey() + "/" + beaconInfo.getTimestamp();
+		ObjectMetadata met = new ObjectMetadata();
+		met.setContentType("text/plain");
+		
+		StringBuffer uploadText = new StringBuffer(beaconInfo.toString());
+		for(BeaconInfo beacon: staticBeacons){
+			uploadText.append(", " + beacon.getBeaconUniqueId());
+			uploadText.append(", " + beacon.getProximity());
+			uploadText.append(", " + beacon.getRSSI() + "\n");					
 		}
+		
+		for(int i = staticBeacons.size(); i < 3; i++)
+			uploadText.append(", \n");
+		
+		met.setContentLength(uploadText.length());
+		InputStream is = new ByteArrayInputStream(uploadText.toString().getBytes());
+		PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, is, met);
+				
 		PutObjectResult putResult = s3Client.putObject(req);
 		if (putResult != null)
-			cognitoHelperObj.sendSQSMessage(sqsQueue, key);
+			CognitoHelper.sendSQSMessage(sqsQueue, key);
 		Log.i(TAG, "Upload successful");
 
 		return true;
@@ -137,12 +138,6 @@ public class ImageUploader extends AsyncTask<Void, Void, Boolean> {
 			Log.e(TAG, "Exception: ", e);
 		}
 		Helpers.displayToast(handler, con, msg, Toast.LENGTH_SHORT);; // will be run in UI thread
+	}	
 
-	}
-		
-	private void removeTempVideoFile(){
-		// remove temp video file from phone storage
-		if(uploadType.contentEquals("VIDEO"))
-			video.delete();
-	}
 }

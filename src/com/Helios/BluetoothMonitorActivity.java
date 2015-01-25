@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
+import java.util.Set;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -59,9 +59,13 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 	private Location mLocation;
 
 	private List<TextView> textViews = new ArrayList<TextView>();
+	private List<TextView> staticBeaconTextViews = new ArrayList<TextView>();
+	
 	private TextView headerTextview;
 	private Map<String, BeaconInfo> discoveredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, BeaconInfo> monitoredBeacons = new HashMap<String, BeaconInfo>();
+	private Map<String, BeaconInfo> staticBeacons = new HashMap<String, BeaconInfo>();
+	
 	private Map<String, TextView> beaconDisplay = new HashMap<String, TextView>();
 	
 	@Override
@@ -91,6 +95,11 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 		textViews.add((TextView) findViewById(R.id.tv4));
 		textViews.add((TextView) findViewById(R.id.tv5));
 		headerTextview = (TextView) findViewById(R.id.header);
+		
+		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_1));
+		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_2));
+		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_3));
+
 	// download list of beacons belonging to this user
 		new Thread(new BeaconListDownloader()).start();
 	}
@@ -200,24 +209,68 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 			text = "Discovered beacon name " + beaconUniqueId;
 			Log.v(TAG, text + " " + beaconID + " " + prox);
 
+			if (beaconInfo.isStaticBeacon()){
+			// add to static beacon list and maintain the size at a max of 3
+				updateStaticBeaconList(beaconInfo);
+				displayStaticBeacons(prox, beaconInfo);
+				continue;
+			}
 			// if we picked up some random beacon that does not belong to this
-			// user, ignore it
+			// user, ignore it. This also ignores static beacons so that they do not get uploaded
 			if (!monitoredBeacons.containsKey(beaconID))
 				continue;
 
 			String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
-			updateTextView(beaconDisplay.get(beaconID),
-					beaconUniqueId + " " + friendlyName + " - " + prox + " RSSI - " + beaconInfo.getRSSI());
+			StringBuffer textViewData = new StringBuffer(beaconUniqueId + " " + friendlyName + " - " + prox);
+			textViewData.append(" RSSI - " + beaconInfo.getRSSI());
+			
+			updateTextView(beaconDisplay.get(beaconID), textViewData.toString());
 
 			if (isBeaconUploadable(beaconInfo)) {
 				beaconInfo.friendlyName = friendlyName;
 				Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
 				discoveredBeacons.put(beaconID, beaconInfo);
-				new ImageUploader(this, mEmail, cognitoHelperObj, beaconInfo, Config.WiFiUploadOnly).execute();
+				new BeaconUploader(this, mEmail, cognitoHelperObj, beaconInfo, staticBeacons, System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
 			}
 		}
 	}
 
+	private void displayStaticBeacons(String prox, BeaconInfo beaconInfo) {
+		// show the static beacons onscreen
+		List<BeaconInfo> beaconIDs = new ArrayList<BeaconInfo>(staticBeacons.values());
+		for(int i = 0; i < 3 && i < beaconIDs.size(); i++){
+			StringBuffer textViewData = new StringBuffer(beaconIDs.get(i).getBeaconUniqueId() + " - " + prox);
+			textViewData.append(" RSSI - " + beaconIDs.get(i).getRSSI());
+
+			updateTextView(staticBeaconTextViews.get(i), textViewData.toString());
+		}
+	}
+	
+	private Map<String, BeaconInfo> updateStaticBeaconList(BeaconInfo beacon){
+		String uniqueKey = beacon.getBeaconUniqueKey();
+		
+		Log.v(TAG, beacon.getBeaconUniqueId() + " is a static beacon");
+		staticBeacons.put(uniqueKey, beacon);
+		// if there are now more than 3 beacons in the map, we throw out 
+		// the oldest beacon observation in the map and put this one in
+		Long minTimestamp = Long.MAX_VALUE;
+		Long currentTimestamp;
+		String minKey = "";
+		
+		if(staticBeacons.size() > 3){
+			for(String observedStaticBeacon: staticBeacons.keySet()){
+				currentTimestamp = staticBeacons.get(observedStaticBeacon).getTimestamp();
+				if(currentTimestamp < minTimestamp){
+					minTimestamp = currentTimestamp;
+					minKey = observedStaticBeacon;
+				}
+			} // for
+			Log.v(TAG, "Removed " + minKey + " from static beacon map");
+			staticBeacons.remove(minKey);
+		}
+		return staticBeacons;
+	}
+	
 	private boolean isBeaconUploadable(BeaconInfo newBeaconInfo) {
 		// decides whether a beacon observation should be uploaded to S3 or not
 		// depending on when it was last seen

@@ -76,4 +76,9 @@ class CognitoHelper {
 			}
 		}).start();
 	}
+
+	static void sendSQSMessage(AmazonSQSClient sqsQueue, String key) {
+		if(Config.DEBUG_SQS_ENABLED)
+			sqsQueue.sendMessage(Config.SQS_QUEUE_URL, key);
+	}
 }

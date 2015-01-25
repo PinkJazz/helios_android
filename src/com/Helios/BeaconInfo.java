@@ -1,5 +1,7 @@
 package com.Helios;
 
+import java.util.Comparator;
+
 import android.location.Location;
 
 import com.kontakt.sdk.android.device.Beacon;
@@ -7,7 +9,7 @@ import com.kontakt.sdk.android.device.Beacon;
 class BeaconInfo {
 	String proximityUUID;
 	int major, minor;
-	long timestamp;
+	private long timestamp;
 	private Location mLocation;
 	Beacon beacon;
 	String friendlyName = "NONE";
@@ -37,9 +39,9 @@ class BeaconInfo {
 	public String toString(){
 		StringBuffer sb = new StringBuffer();
 		sb.append("Timestamp = " + timestamp + "\n");
-		sb.append("Latitude = " + getLocation().getLatitude() + ", Longitude = " + getLocation().getLongitude() + "\n");
-		sb.append("Proximity = " + getProximity() + "\n");
-		sb.append("Friendly Name = " + friendlyName + "\n");
+		sb.append(", Latitude = " + getLocation().getLatitude() + ", Longitude = " + getLocation().getLongitude() + "\n");
+		sb.append(", Proximity = " + getProximity() + "\n");
+		sb.append(", Friendly Name = " + friendlyName + "\n");
 		
 		return sb.toString();
 	}
@@ -61,6 +63,14 @@ class BeaconInfo {
 		if(this.getProximity().contentEquals(beacon.getProximity().toString()))
 			return true;
 		
+		return false;
+	}
+	
+	boolean isStaticBeacon(){
+		// true if the major ID of the beacon is within the range specified in the Config file
+		if(major >= Config.STATIC_BEACON_MAJOR_ID_LOWER_BOUND && 
+				major <= Config.STATIC_BEACON_MAJOR_ID_UPPER_BOUND)
+			return true;
 		return false;
 	}
 	
@@ -109,4 +119,21 @@ class BeaconInfo {
 		this.mLocation = mLocation;
 	}
 
+	long getTimestamp() {
+		return timestamp;
+	}
+
+	void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
+	}
+
+	static class TimeStampComparator implements Comparator<BeaconInfo>{
+		public int compare(BeaconInfo a, BeaconInfo b){
+			if(a.getTimestamp() < b.getTimestamp())
+				return -1;
+			if(a.getTimestamp() > b.getTimestamp())
+				return 1;
+			return 0;
+		}
+	}
 }

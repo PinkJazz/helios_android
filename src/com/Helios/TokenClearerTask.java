@@ -28,6 +28,7 @@ class TokenClearerTask extends AsyncTask<Void, Void, Void>{
 			GoogleAuthUtil.clearToken(mActivity, mToken);
 			mActivity.setToken(null);
 			mActivity.showToast("Logged out");
+			mActivity.finish();
 		}		
 		catch (IOException ex) {
 			onError("IO Exception occured, please try again. "

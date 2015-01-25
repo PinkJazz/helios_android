@@ -3,6 +3,8 @@ package com.Helios;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Handler;
+import android.widget.Toast;
 
 // Miscellaneous support functions used by various classes
 class Helpers {
@@ -23,5 +25,19 @@ class Helpers {
         }
         return false;
 	}
+	
+	static void displayToast(Handler handler, final Context con, final String text, final int toast_length){
+		// helper method uses the main thread to display a toast
+		// we use this because if this class is used by a Service
+		// as opposed to an Activity, we can't access the UI thread 
+		// in the normal way using RunOnUIThread
+		handler.post(new Runnable(){
+			public void run(){
+				Toast.makeText(con, text, toast_length).show();
+			}
+		});
+	}
+	
+
 
 }

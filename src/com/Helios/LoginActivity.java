@@ -165,6 +165,8 @@ public class LoginActivity extends Activity {
     public void LogoutUser(View view) {
     	if(isGooglePlayServicesConnected() && mToken != null)
     		new TokenClearerTask(this, mToken).execute();
+    	Toast.makeText(this, "Logging out", Toast.LENGTH_SHORT).show();
+    	finish();
     }
 
     /** Attempt to get the user name. If the email address isn't known yet,

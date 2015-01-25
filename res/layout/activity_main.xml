@@ -7,6 +7,7 @@
 
     <TextView
         android:id = "@+id/title"
+        android:textSize="20sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" 
         android:layout_marginBottom="30dp"       
@@ -18,9 +19,11 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/title"
         android:layout_marginBottom="30dp"
+        android:textSize = "18sp"
         android:text="Tracking 0 beacons" />
     <TextView
         android:id = "@+id/tv1"
+        android:textSize = "14sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/header"
@@ -28,6 +31,7 @@
     
     <TextView
         android:id = "@+id/tv2"
+        android:textSize = "14sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/tv1"
@@ -35,6 +39,7 @@
     
     <TextView
         android:id = "@+id/tv3"
+        android:textSize = "14sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/tv2"
@@ -42,6 +47,7 @@
 
     <TextView
         android:id = "@+id/tv4"
+        android:textSize = "14sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/tv3"
@@ -49,9 +55,46 @@
 
     <TextView
         android:id = "@+id/tv5"
+        android:textSize = "14sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/tv4"
+        android:layout_marginBottom="50dp"
         android:text="" />
     
+    <TextView
+        android:id = "@+id/staticBeaconHeader"
+        android:textSize = "18sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv4"
+        android:layout_marginBottom="50dp"
+        android:text="Static beacons" />
+    
+    <TextView
+        android:id = "@+id/stat_1"
+        android:textSize = "14sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/staticBeaconHeader"
+        android:layout_marginBottom="10dp"
+        android:text="" />
+    
+    <TextView
+        android:id = "@+id/stat_2"
+        android:textSize = "14sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/stat_1"
+        android:layout_marginBottom="10dp"
+        android:text="" />
+    
+    <TextView
+        android:id = "@+id/stat_3"
+        android:textSize = "14sp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/stat_2"
+        android:layout_marginBottom="10dp"
+        android:text="" />
 </RelativeLayout>
