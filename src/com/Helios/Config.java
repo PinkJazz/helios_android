@@ -32,4 +32,6 @@ final class Config {
 	
 	static boolean WiFiUploadOnly = true;
 	static boolean DEBUG_SQS_ENABLED = false; // should be true unless we are debugging
+	
+	private Config(){} // no instantiation
 }

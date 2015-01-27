@@ -3,13 +3,9 @@ package com.Helios;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import android.app.Notification;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -21,6 +17,7 @@ import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
@@ -31,9 +28,6 @@ import android.view.WindowManager;
 import android.view.WindowManager.LayoutParams;
 import android.widget.Toast;
 
-import com.amazonaws.auth.CognitoCachingCredentialsProvider;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.sqs.AmazonSQS;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
@@ -66,6 +60,10 @@ public class BackgroundVideoRecorder extends Service implements
 	private int[] audioStreams;
 	private int[] audioStreamVolumes;
 
+	// used to access UI thread for toasts
+	private Handler handler = new Handler(Looper.getMainLooper());
+	private Context con;
+
 	// used for location services using new Location API
 	private GoogleApiClient mGoogleApiClient;
 	private Location mLocation;
@@ -77,8 +75,11 @@ public class BackgroundVideoRecorder extends Service implements
 	@Override
 	public void onCreate() {
 
+		con = this;
+		
 		// Create new SurfaceView, set its size to 1x1, move it to the top left
 		// corner and set this service as a callback
+		
 		windowManager = (WindowManager) this
 				.getSystemService(Context.WINDOW_SERVICE);
 		surfaceView = new SurfaceView(this);
@@ -99,6 +100,17 @@ public class BackgroundVideoRecorder extends Service implements
 
 	}
 
+	// Stop recording and remove SurfaceView
+	@Override
+	public void onDestroy() {
+
+		Log.v(TAG, "BackgroundVideoRecorder Service is being destroyed");
+		stopMediaRecorder();
+		windowManager.removeView(surfaceView);
+		if (mGoogleApiClient.isConnected())
+			mGoogleApiClient.disconnect();
+	}
+
 	public int onStartCommand(Intent intent, int flags, int startID) {
 		// gets email and access token from calling activity
 		mEmail = intent.getStringExtra(LoginActivity.EMAIL_MSG);
@@ -108,7 +120,8 @@ public class BackgroundVideoRecorder extends Service implements
 
 		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_START)) {
 			Log.i(TAG, "Started service for user " + mEmail);
-			createStopPauseNotification();
+			Helpers.createStopPauseNotification("Helios Background Video Recorder", "Stop", "Pause",
+					this, BackgroundVideoRecorder.class, token, mEmail, NOTIFICATION_ID);
 			// this is called only on the first creation of this class
 			// so onSurfaceCreated starts the video recording
 			startUploadTimer(Config.UPLOAD_INTERVAL);
@@ -123,13 +136,15 @@ public class BackgroundVideoRecorder extends Service implements
 		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_PAUSE)) {
 			Log.i(TAG, "Paused recording for user " + mEmail);
 			stopMediaRecorder();
-			createStopPlayNotification();
+			Helpers.createStopPlayNotification("Helios Background Video Recorder", "Stop", "Play",
+					this, BackgroundVideoRecorder.class, token, mEmail, NOTIFICATION_ID);
 			uploadVideo();
 		}
 
 		if (requestType.equals(TokenFetcherTask.REQUEST_TYPE_PLAY)) {
 			Log.i(TAG, "Restarted recording for user " + mEmail);
-			createStopPauseNotification();
+			Helpers.createStopPauseNotification("Helios Background Video Recorder", "Stop", "Pause",
+					this, BackgroundVideoRecorder.class, token, mEmail, NOTIFICATION_ID);
 			startRecordingVideo(surfHolder);
 			startUploadTimer(Config.UPLOAD_INTERVAL);
 		}
@@ -157,51 +172,6 @@ public class BackgroundVideoRecorder extends Service implements
 		new ImageUploader(this, mEmail, new File(outputFile), cognitoHelperObj, mLocation, Config.WiFiUploadOnly).execute();
 	}
 
-	private void createStopPauseNotification() {
-
-		PendingIntent stopIntent = PendingIntent
-				.getService(this, 0, getIntent(TokenFetcherTask.REQUEST_TYPE_STOP),
-						PendingIntent.FLAG_CANCEL_CURRENT);
-		PendingIntent pauseIntent = PendingIntent.getService(this, 1,
-				getIntent(TokenFetcherTask.REQUEST_TYPE_PAUSE),
-				PendingIntent.FLAG_CANCEL_CURRENT);
-
-		// Start foreground service to avoid unexpected kill
-		Notification notification = new Notification.Builder(this)
-				.setContentTitle("Helios Background Video Recorder")
-				.setContentText("").setSmallIcon(R.drawable.eye)
-				.addAction(R.drawable.pause, "Pause", pauseIntent)
-				.addAction(R.drawable.stop, "Stop", stopIntent).build();
-		startForeground(NOTIFICATION_ID, notification);
-	}
-
-	private void createStopPlayNotification() {
-
-		PendingIntent stopIntent = PendingIntent
-				.getService(this, 0, getIntent(TokenFetcherTask.REQUEST_TYPE_STOP),
-						PendingIntent.FLAG_CANCEL_CURRENT);
-		PendingIntent playIntent = PendingIntent
-				.getService(this, 2, getIntent(TokenFetcherTask.REQUEST_TYPE_PLAY),
-						PendingIntent.FLAG_CANCEL_CURRENT);
-
-		// Start foreground service to avoid unexpected kill
-		Notification notification = new Notification.Builder(this)
-				.setContentTitle("Helios Background Video Recorder")
-				.setContentText("").setSmallIcon(R.drawable.eye)
-				.addAction(R.drawable.play, "Play", playIntent)
-				.addAction(R.drawable.stop, "Stop", stopIntent).build();
-		startForeground(NOTIFICATION_ID, notification);
-	}
-
-	private Intent getIntent(String requestType) {
-		Intent intent = new Intent(this, BackgroundVideoRecorder.class);
-		intent.putExtra(TokenFetcherTask.REQUEST_TYPE, requestType);
-		intent.putExtra(LoginActivity.TOKEN_MSG, token);
-		intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
-
-		return intent;
-
-	}
 
 	// Method called right after Surface created (initializing and starting
 	// MediaRecorder)
@@ -221,9 +191,10 @@ public class BackgroundVideoRecorder extends Service implements
 
 		camera = getCameraInstance();
 		if (camera == null) {
-			Toast.makeText(this, "Camera unavailable or in use",
-					Toast.LENGTH_LONG).show();
-			createStopPlayNotification();
+			Helpers.displayToast(handler, con , "Camera unavailable or in use",
+					Toast.LENGTH_LONG);
+			Helpers.createStopPlayNotification("Helios Background Video Recorder", "Stop", "Play",
+					this, BackgroundVideoRecorder.class, token, mEmail, NOTIFICATION_ID);
 			stopMediaRecorder();
 			return;
 		}
@@ -271,17 +242,6 @@ public class BackgroundVideoRecorder extends Service implements
 			Log.d(TAG, "IOException preparing MediaRecorder: " + e.getMessage());
 			stopMediaRecorder();
 		}
-	}
-
-	// Stop recording and remove SurfaceView
-	@Override
-	public void onDestroy() {
-
-		Log.v(TAG, "BackgroundVideoRecorder Service is being destroyed");
-		stopMediaRecorder();
-		windowManager.removeView(surfaceView);
-		if (mGoogleApiClient.isConnected())
-			mGoogleApiClient.disconnect();
 	}
 
 	private void startMediaRecorder() {
@@ -479,8 +439,8 @@ public class BackgroundVideoRecorder extends Service implements
 		Log.e(TAG, "Error when connecting to Location Services "
 				+ connectionResult.getErrorCode()
 				+ " Location services not available");
-		Toast.makeText(this, "Location services not available",
-				Toast.LENGTH_LONG).show();
+		Helpers.displayToast(handler, con , "Location services not available",
+				Toast.LENGTH_LONG);
 	}
 
 }

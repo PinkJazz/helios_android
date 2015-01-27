@@ -1,6 +1,12 @@
 package com.Helios;
 
+import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.PendingIntent;
+import android.app.Service;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Handler;
@@ -8,7 +14,11 @@ import android.widget.Toast;
 
 // Miscellaneous support functions used by various classes
 class Helpers {
+
+	private Helpers(){}	// not to be instantiated
 	
+	static enum ActivityType {RECORD_VIDEO, FOREGROUND_BLUETOOTH_MONITOR, BACKGROUND_BLUETOOTH_MONITOR}
+
 	static boolean isWifiConnected(Context con){
 		ConnectivityManager connectivity = (ConnectivityManager) con.getSystemService(Context.CONNECTIVITY_SERVICE);
         //If connectivity object is not null
@@ -38,6 +48,74 @@ class Helpers {
 		});
 	}
 	
+    static void showAlert(final Context con, final String title, final String msg){
+    	// shows alert dialog box if user tries to log in again while 
+    	// BackgroundVideoRecorder is already running
+    	AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(con);
+ 
+			// set title
+		alertDialogBuilder.setTitle(title);
+		alertDialogBuilder.setMessage(msg).setCancelable(true)
+				.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 
+		    @Override
+		    public void onClick(DialogInterface dialog, int which) {
+		        // TODO Auto-generated method stub
+		        // Do something
+		        dialog.dismiss();
+		        }
+		    });
+		
+		AlertDialog alertDialog = alertDialogBuilder.create();
+		alertDialog.show();
+    }
+    
+	static void createStopPauseNotification(String title, String stopText, String pauseText, 
+			Service con, Class<?> serviceClass, String token, String mEmail, int NOTIFICATION_ID) {
+
+		PendingIntent stopIntent = PendingIntent
+				.getService(con, 0, getIntent(TokenFetcherTask.REQUEST_TYPE_STOP, con, serviceClass, token, mEmail),
+						PendingIntent.FLAG_CANCEL_CURRENT);
+		PendingIntent pauseIntent = PendingIntent.getService(con, 1,
+				getIntent(TokenFetcherTask.REQUEST_TYPE_PAUSE, con, serviceClass, token, mEmail),
+				PendingIntent.FLAG_CANCEL_CURRENT);
+
+		// Start foreground service to avoid unexpected kill
+		Notification notification = new Notification.Builder(con)
+				.setContentTitle(title)
+				.setContentText("").setSmallIcon(R.drawable.eye)
+				.addAction(R.drawable.pause, pauseText, pauseIntent)
+				.addAction(R.drawable.stop, stopText, stopIntent).build();
+		con.startForeground(NOTIFICATION_ID, notification);
+	}
+
+	static void createStopPlayNotification(String title, String stopText, String playText, 
+			Service con, Class<?> serviceClass, String token, String mEmail, int NOTIFICATION_ID) {
+
+		PendingIntent stopIntent = PendingIntent
+				.getService(con, 0, getIntent(TokenFetcherTask.REQUEST_TYPE_STOP, con, serviceClass, token, mEmail),
+						PendingIntent.FLAG_CANCEL_CURRENT);
+		PendingIntent playIntent = PendingIntent
+				.getService(con, 2, getIntent(TokenFetcherTask.REQUEST_TYPE_PLAY, con, serviceClass, token, mEmail),
+						PendingIntent.FLAG_CANCEL_CURRENT);
+
+		// Start foreground service to avoid unexpected kill
+		Notification notification = new Notification.Builder(con)
+				.setContentTitle(title)
+				.setContentText("").setSmallIcon(R.drawable.eye)
+				.addAction(R.drawable.play, playText, playIntent)
+				.addAction(R.drawable.stop, stopText, stopIntent).build();
+		con.startForeground(NOTIFICATION_ID, notification);
+	}
+
+	static Intent getIntent(String requestType, Context con, Class<?> serviceClass, String token, String mEmail) {
+		Intent intent = new Intent(con, serviceClass);
+		intent.putExtra(TokenFetcherTask.REQUEST_TYPE, requestType);
+		intent.putExtra(LoginActivity.TOKEN_MSG, token);
+		intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
+
+		return intent;
+
+	}
 
 }

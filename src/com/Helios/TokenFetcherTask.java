@@ -54,14 +54,30 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 	*/
 		if(token != null){
 			mActivity.setToken(token);			
-			if(mActivity.doMonitorBluetooth()){  // monitor for Bluetooth beacons
+			if(mActivity.getActivityType() == Helpers.ActivityType.FOREGROUND_BLUETOOTH_MONITOR){ 
+				// monitor for Bluetooth beacons
 				Intent intent = new Intent(mActivity, BluetoothMonitorActivity.class);
 				intent.putExtra(LoginActivity.TOKEN_MSG, token);
 				intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
 				mActivity.startActivity(intent);
 				Log.i(TAG, "Monitoring for bluetooth beacons");
+				return;
 			}
-			else{ // start service to upload video to server where the decoding will occur
+			
+			if(mActivity.getActivityType() == Helpers.ActivityType.BACKGROUND_BLUETOOTH_MONITOR){ 
+				// monitor for Bluetooth beacons
+				Intent intent = new Intent(mActivity, BluetoothMonitorService.class);
+				intent.putExtra(LoginActivity.TOKEN_MSG, token);
+				intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
+				intent.putExtra(TokenFetcherTask.REQUEST_TYPE, TokenFetcherTask.REQUEST_TYPE_START);
+				mActivity.startService(intent);
+				Log.i(TAG, "Started new BluetoothMonitorService with token for " + mEmail);
+				mActivity.finish();
+				return;
+			}
+
+			if(mActivity.getActivityType() == Helpers.ActivityType.RECORD_VIDEO){ 
+				 // start service to upload video to server where the decoding will occur
 				Intent intent = new Intent(mActivity, BackgroundVideoRecorder.class);
 				intent.putExtra(LoginActivity.TOKEN_MSG, token);
 				intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
@@ -69,6 +85,7 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 				mActivity.startService(intent);
 				Log.i(TAG, "Started new BackgroundVideoRecorder with token for " + mEmail);
 				mActivity.finish();
+				return;
 			}
 		}
 	}

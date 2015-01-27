@@ -4,6 +4,7 @@
     <string name="Login">Log in and decode locally</string>
     <string name="backgroundVideo">Log in and upload video</string>
     <string name="bluetooth">Log in and monitor for beacons</string>
+    <string name="bluetoothService">Log in and background monitor for beacons</string>
     <string name="Logout">Log out</string>
     <string name="account">Account</string>
     <string name="unrecoverable_error">Unrecoverable Play Services error</string>
