@@ -132,51 +132,6 @@ public class BluetoothMonitorService extends Service
 	}
 
 	
-/*	private BeaconManager initializeBeaconManager() {
-		// starts up Kontakt.io beacon manager
-		beaconManager = BeaconManager.newInstance(this);
-		beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
-		beaconManager.setForceScanConfiguration(ForceScanConfiguration.DEFAULT);
-		beaconManager.addFilter(Filters.newProximityUUIDFilter(java.util.UUID.fromString(Config.PROXIMITY_UUID)));
-		// beaconManager.addFilter(Filters.newMajorFilter(29358));
-
-		beaconManager.registerRangingListener(this);
-		Log.v(TAG, "Started bluetooth service with email " + mEmail);
-
-		connectBeaconManager();
-	}
-
-	private void disconnectBeaconManager() {
-		if (beaconManager != null){
-			beaconManager.stopRanging();
-			beaconManager.disconnect();
-		}
-	}
-
-	private void connectBeaconManager() {
-		try {
-			beaconManager.connect(new OnServiceBoundListener() {
-				@Override
-				public void onServiceBound() {
-					try {
-						beaconManager.startRanging();
-					} catch (RemoteException e) {
-						showRemoteException(TAG, e);
-					}
-				}
-			});
-		} catch (RemoteException e) {
-			showRemoteException(TAG, e);
-		}
-	}
-
-	private void showRemoteException(String localTag, RemoteException e) {
-		Log.e(localTag, "Unrecoverable error when connecting beacon manager " + e.getMessage());
-		Helpers.showAlert(con, "Beacon error", "Unrecoverable error when connecting beacon manager");
-		stopSelf();
-	}
-*/
-	
 	private void disconnectBeaconManager() {
 		kontaktBeaconManager.disconnectBeaconManager();
 	}
@@ -382,13 +337,11 @@ public class BluetoothMonitorService extends Service
 			} catch (IOException ioe) {
 				Log.e(TAG_DOWNLOAD, key + " file could be missing or invalid - " + ioe.getMessage());
 			}
-			// initialize beacon manager on UI thread because Kontakt.io SDK
-			// requires this
+			// initialize beacon manager on UI thread because Kontakt.io SDK requires this
 			handler.post(new Runnable() {
 				public void run() {
 					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorService.this, BluetoothMonitorService.this);
 					connectBeaconManager();
-//					initializeBeaconManager();
 				}
 			});
 		}
