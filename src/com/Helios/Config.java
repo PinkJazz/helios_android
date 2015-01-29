@@ -33,5 +33,8 @@ final class Config {
 	static boolean WiFiUploadOnly = true;
 	static boolean DEBUG_SQS_ENABLED = false; // should be true unless we are debugging
 	
+	// target address to HTTP POST beacon data
+	static final String POST_TARGET = "http://smartglass-prod.ddns.net/test";
+	
 	private Config(){} // no instantiation
 }

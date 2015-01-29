@@ -1,12 +1,23 @@
 package com.Helios;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 
 import android.content.Context;
 import android.os.AsyncTask;
@@ -113,7 +124,7 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		
 		StringBuffer uploadText = new StringBuffer(beaconInfo.toString());
 		for(BeaconInfo beacon: staticBeacons){
-			uploadText.append(", " + beacon.getBeaconUniqueId());
+			uploadText.append(", " + beacon.getBeaconUniqueKey());
 			uploadText.append(", " + beacon.getProximity());
 			uploadText.append(", " + beacon.getRSSI() + "\n");					
 		}
@@ -130,7 +141,54 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 			CognitoHelper.sendSQSMessage(sqsQueue, key);
 		Log.i(TAG, "Upload successful");
 
-		return true;
+		return uploadPost();		
+	}
+
+	protected boolean uploadPost(){
+		HttpClient client=new DefaultHttpClient();
+		HttpPost getMethod=new HttpPost(Config.POST_TARGET);
+
+		try {
+		    // Add your data
+			ArrayList<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(18);		
+			nameValuePairs.add(new BasicNameValuePair("UniqueKey", beaconInfo.getBeaconUniqueKey()));
+		    nameValuePairs.add(new BasicNameValuePair("Timestamp", Long.toString(beaconInfo.getTimestamp())));
+		    nameValuePairs.add(new BasicNameValuePair("Latitude", Double.toString(beaconInfo.getLocation().getLatitude())));
+		    nameValuePairs.add(new BasicNameValuePair("Longitude", Double.toString(beaconInfo.getLocation().getLongitude())));
+		    nameValuePairs.add(new BasicNameValuePair("Proximity", beaconInfo.getProximity()));
+		    nameValuePairs.add(new BasicNameValuePair("FriendlyName", beaconInfo.friendlyName));
+		    
+		    int i = 0;
+			for(BeaconInfo beacon: staticBeacons){
+				i++;
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, beaconInfo.getBeaconUniqueKey()));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, beaconInfo.getProximity()));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, Double.toString(beaconInfo.getRSSI())));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, beaconInfo.friendlyName));
+			}
+
+			while(i < 3){
+				// make sure there are always fields available for upto 3 static beacons
+				i++;
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, ""));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, ""));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, ""));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, ""));
+			}
+		    getMethod.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+		    
+		    Log.v(TAG, "Sending data now");
+		    HttpResponse resp = client.execute(getMethod);
+		    Log.v(TAG, "Response status code is " + resp.getStatusLine().getStatusCode());
+		    
+		    return true;
+		} catch (ClientProtocolException e) {
+		    Log.w(TAG, "Protocol Exception when POSTing beacon data " + e.getMessage());
+		    return false;
+		} catch (IOException e) {
+			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
+		    return false;
+		}
 	}
 
 	protected void onError(String msg, Exception e) {
