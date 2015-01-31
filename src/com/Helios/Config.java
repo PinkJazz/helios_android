@@ -34,7 +34,8 @@ final class Config {
 	static boolean DEBUG_SQS_ENABLED = false; // should be true unless we are debugging
 	
 	// target address to HTTP POST beacon data
-	static final String POST_TARGET = "http://smartglass-prod.ddns.net/test";
+	static final String POST_TARGET = "http://50.112.176.173:8080/test";
+//	static final String POST_TARGET = "http://192.168.1.23:8080/test";
 	
 	private Config(){} // no instantiation
 }

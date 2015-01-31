@@ -155,12 +155,13 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 			nameValuePairs.add(new BasicNameValuePair("Token", token));
 			
 			nameValuePairs.add(new BasicNameValuePair("UniqueKey", beaconInfo.getBeaconUniqueKey()));
+			Log.v(TAG, "Uploaded unique key " + beaconInfo.getBeaconUniqueKey());
 		    nameValuePairs.add(new BasicNameValuePair("Timestamp", Long.toString(beaconInfo.getTimestamp())));
 		    nameValuePairs.add(new BasicNameValuePair("Latitude", Double.toString(beaconInfo.getLocation().getLatitude())));
 		    nameValuePairs.add(new BasicNameValuePair("Longitude", Double.toString(beaconInfo.getLocation().getLongitude())));
 		    nameValuePairs.add(new BasicNameValuePair("Proximity", beaconInfo.getProximity()));
 		    nameValuePairs.add(new BasicNameValuePair("FriendlyName", beaconInfo.friendlyName));
-		    
+		    Log.v(TAG, "Uploaded FriendlyName " + beaconInfo.friendlyName);
 		    int i = 0;
 			for(BeaconInfo beacon: staticBeacons){
 				i++;
@@ -190,6 +191,9 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		    return false;
 		} catch (IOException e) {
 			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
+		    return false;
+		}catch (Exception e) {
+			Log.w(TAG, "Exception when POSTing beacon data " + e.getMessage());
 		    return false;
 		}
 	}
