@@ -164,10 +164,10 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		    int i = 0;
 			for(BeaconInfo beacon: staticBeacons){
 				i++;
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, beaconInfo.getBeaconUniqueKey()));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, beaconInfo.getProximity()));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, Double.toString(beaconInfo.getRSSI())));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, beaconInfo.friendlyName));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, beacon.getBeaconUniqueKey()));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, beacon.getProximity()));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, Double.toString(beacon.getRSSI())));
+				nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, beacon.friendlyName));
 			}
 
 			while(i < 3){
