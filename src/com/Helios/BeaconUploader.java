@@ -54,11 +54,12 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 	private BeaconInfo beaconInfo;
 	Set<BeaconInfo> staticBeacons = new HashSet<BeaconInfo>();
 
-	BeaconUploader(Context con, String mEmail, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, 
+	BeaconUploader(Context con, String mEmail, String token, CognitoHelper cognitoHelper, BeaconInfo beaconInfo, 
 			Map<String, BeaconInfo> staticBeacons, long observationTime, boolean WifiUploadOnly) {
 		// used to upload bluetooth beacon details to Amazon S3
 		this.con = con;
 		this.mEmail = mEmail;
+		this.token = token;
 		
 		this.cognitoHelperObj = cognitoHelper;
 		this.s3Client = cognitoHelper.s3Client;
@@ -66,6 +67,7 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		
 		this.beaconInfo = beaconInfo;
 		this.WifiUploadOnly = WifiUploadOnly;
+		
 		getValidStaticBeacons(beaconInfo, staticBeacons, observationTime);
 		
 	}

@@ -185,7 +185,7 @@ public class BluetoothMonitorService extends Service
 				beaconInfo.friendlyName = friendlyName;
 				Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
 				discoveredBeacons.put(beaconID, beaconInfo);
-				new BeaconUploader(this, mEmail, cognitoHelperObj, beaconInfo, staticBeacons, System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
+				new BeaconUploader(this, mEmail, token, cognitoHelperObj, beaconInfo, staticBeacons, System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
 			}
 		}
 	}
