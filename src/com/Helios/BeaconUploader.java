@@ -150,7 +150,10 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 
 		try {
 		    // Add your data
-			ArrayList<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(18);		
+			ArrayList<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(20);		
+			nameValuePairs.add(new BasicNameValuePair("Email", mEmail));
+			nameValuePairs.add(new BasicNameValuePair("Token", token));
+			
 			nameValuePairs.add(new BasicNameValuePair("UniqueKey", beaconInfo.getBeaconUniqueKey()));
 		    nameValuePairs.add(new BasicNameValuePair("Timestamp", Long.toString(beaconInfo.getTimestamp())));
 		    nameValuePairs.add(new BasicNameValuePair("Latitude", Double.toString(beaconInfo.getLocation().getLatitude())));
