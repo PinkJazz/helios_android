@@ -3,8 +3,13 @@ package com.Helios;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +19,6 @@ import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
@@ -73,9 +77,11 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 	}
 	
 	private Set<BeaconInfo> getValidStaticBeacons(BeaconInfo observedBeacon, Map<String, BeaconInfo> staticBeacons, long observationTime){
-		
+		/*
+		 * This function takes the list of static beacon but only uploads static beacons observed 
+		 * less than a second before observing the beacon we upload
+		 */
 		for(BeaconInfo beacon: staticBeacons.values()){			
-			// only add static beacons observed less than a second before observing the beacon we upload
 			if (beacon.getTimestamp() > observationTime - 1000)
 				this.staticBeacons.add(beacon);
 		}
@@ -146,58 +152,79 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		return uploadPost();		
 	}
 
-	protected boolean uploadPost(){
-		HttpClient client=new DefaultHttpClient();
-		HttpPost getMethod=new HttpPost(Config.POST_TARGET);
-
+	protected boolean uploadPost() {
+		URL url;
+		HttpURLConnection conn;
 		try {
-		    // Add your data
-			ArrayList<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(20);		
-			nameValuePairs.add(new BasicNameValuePair("Email", mEmail));
-			nameValuePairs.add(new BasicNameValuePair("Token", token));
-			
-			nameValuePairs.add(new BasicNameValuePair("UniqueKey", beaconInfo.getBeaconUniqueKey()));
-			Log.v(TAG, "Uploaded unique key " + beaconInfo.getBeaconUniqueKey());
-		    nameValuePairs.add(new BasicNameValuePair("Timestamp", Long.toString(beaconInfo.getTimestamp())));
-		    nameValuePairs.add(new BasicNameValuePair("Latitude", Double.toString(beaconInfo.getLocation().getLatitude())));
-		    nameValuePairs.add(new BasicNameValuePair("Longitude", Double.toString(beaconInfo.getLocation().getLongitude())));
-		    nameValuePairs.add(new BasicNameValuePair("Proximity", beaconInfo.getProximity()));
-		    nameValuePairs.add(new BasicNameValuePair("FriendlyName", beaconInfo.friendlyName));
-		    Log.v(TAG, "Uploaded FriendlyName " + beaconInfo.friendlyName);
-		    int i = 0;
-			for(BeaconInfo beacon: staticBeacons){
-				i++;
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, beacon.getBeaconUniqueKey()));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, beacon.getProximity()));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, Double.toString(beacon.getRSSI())));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, beacon.friendlyName));
-			}
-
-			while(i < 3){
-				// make sure there are always fields available for upto 3 static beacons
-				i++;
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, ""));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, ""));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, ""));
-				nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, ""));
-			}
-		    getMethod.setEntity(new UrlEncodedFormEntity(nameValuePairs));
-		    
-		    Log.v(TAG, "Sending data now");
-		    HttpResponse resp = client.execute(getMethod);
-		    Log.v(TAG, "Response status code is " + resp.getStatusLine().getStatusCode());
-		    
-		    return true;
-		} catch (ClientProtocolException e) {
-		    Log.w(TAG, "Protocol Exception when POSTing beacon data " + e.getMessage());
-		    return false;
+			url = new URL(Config.POST_TARGET);
+			conn = (HttpURLConnection) url.openConnection();
+		} catch (MalformedURLException mue) {
+			Log.w(TAG, "Malformed URL Exception " + mue.getMessage());
+			return false;
 		} catch (IOException e) {
 			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
-		    return false;
-		}catch (Exception e) {
-			Log.w(TAG, "Exception when POSTing beacon data " + e.getMessage());
-		    return false;
+			return false;
 		}
+		// connection was opened successfully if we got here
+		ArrayList<NameValuePair> nameValuePairs = constructPayload();
+		try {
+			byte[] payload = getQuery(nameValuePairs);
+			conn.setDoOutput(true);
+			conn.setFixedLengthStreamingMode(payload.length);
+
+			OutputStream os = conn.getOutputStream();
+			Log.v(TAG, "Sending data now");
+			os.write(payload);
+			Log.v(TAG, "Response status code is " + conn.getResponseCode());
+			return true;
+
+		} catch (ClientProtocolException e) {
+			Log.w(TAG, "Protocol Exception when POSTing beacon data " + e.getMessage());
+			return false;
+		} catch (IOException e) {
+			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
+			return false;
+		} catch (Exception e) {
+			Log.w(TAG, "Exception when POSTing beacon data " + e.getMessage());
+			return false;
+		} finally {
+			conn.disconnect();
+		}
+	}
+
+	private ArrayList<NameValuePair> constructPayload() {
+		// Add your data to be POSTed
+		ArrayList<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(20);
+		nameValuePairs.add(new BasicNameValuePair("Email", mEmail));
+		nameValuePairs.add(new BasicNameValuePair("Token", token));
+
+		nameValuePairs.add(new BasicNameValuePair("UniqueKey", beaconInfo.getBeaconUniqueKey()));
+		nameValuePairs.add(new BasicNameValuePair("Timestamp", Long.toString(beaconInfo.getTimestamp())));
+		nameValuePairs.add(new BasicNameValuePair("Latitude", Double.toString(beaconInfo.getLocation()
+				.getLatitude())));
+		nameValuePairs.add(new BasicNameValuePair("Longitude", Double.toString(beaconInfo.getLocation()
+				.getLongitude())));
+		nameValuePairs.add(new BasicNameValuePair("Proximity", beaconInfo.getProximity()));
+		nameValuePairs.add(new BasicNameValuePair("FriendlyName", beaconInfo.friendlyName));
+
+		int i = 0;
+		for (BeaconInfo beacon : staticBeacons) {
+			i++;
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, beacon.getBeaconUniqueKey()));
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, beacon.getProximity()));
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, Double.toString(beacon.getRSSI())));
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, beacon.friendlyName));
+		}
+
+		while (i < 3) {
+			// make sure there are always fields available for upto 3 static beacons
+			i++;
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, ""));
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, ""));
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, ""));
+			nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, ""));
+		}
+		return nameValuePairs;
 	}
 
 	protected void onError(String msg, Exception e) {
@@ -205,6 +232,25 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 			Log.e(TAG, "Exception: ", e);
 		}
 		Helpers.displayToast(handler, con, msg, Toast.LENGTH_SHORT);; // will be run in UI thread
-	}	
+	}
+	
+	private byte[] getQuery(List<NameValuePair> params) throws UnsupportedEncodingException
+	{
+	    StringBuilder result = new StringBuilder();
+	    boolean first = true;
 
+	    for (NameValuePair pair : params)
+	    {
+	        if (first)
+	            first = false;
+	        else
+	            result.append("&");
+
+	        result.append(URLEncoder.encode(pair.getName(), "UTF-8"));
+	        result.append("=");
+	        result.append(URLEncoder.encode(pair.getValue(), "UTF-8"));
+	    }
+
+	    return result.toString().getBytes();
+	}
 }
