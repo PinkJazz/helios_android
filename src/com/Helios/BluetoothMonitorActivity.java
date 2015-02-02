@@ -10,8 +10,10 @@ import java.util.Map;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
@@ -61,6 +63,27 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 
 	private boolean IS_INITIALIZED = false; // see onResume for this variable's purpose
 	private GenericRangingListener mRangingListener = new GenericRangingListener(this, monitoredBeacons);
+
+	// define BroadCastReceiver to shut the service down if Bluetooth
+	// gets switched off while the service is running
+    private final IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+	    @Override
+	    public void onReceive(Context context, Intent intent) {
+	        final String action = intent.getAction();
+
+	        if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+	            final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+	                                                 BluetoothAdapter.ERROR);
+	            if (state == BluetoothAdapter.STATE_OFF || state == BluetoothAdapter.STATE_TURNING_OFF)	{
+	            	Helpers.displayToast(handler, context, "Shutting down Helios monitor", Toast.LENGTH_SHORT);
+	            	Log.i(TAG, "Killing activity since Bluetooth was turned off");
+	            	BluetoothMonitorActivity.this.finish();
+	            }
+	        }
+	    }
+	};
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -119,21 +142,25 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 	protected void onResume() {
 		super.onResume();
 		// we don't want onResume to initialize when the activity is first
-		// opened
-		// so we use the IS_INITIALIZED variable to make sure that the
-		// BeaconDownloader
-		// has finished executing
+		// opened so we use the IS_INITIALIZED variable to make sure that the
+		// BeaconDownloader has finished executing
 		if (IS_INITIALIZED && kontaktBeaconManager == null) {
 			kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this,
 					mRangingListener);
 			connectBeaconManager();
+			registerReceiver(mReceiver, filter);
 		}
+	}
+
+	@Override
+	protected void onPause() {
+		super.onPause();
 	}
 
 	@Override
 	protected void onStop() {
 		super.onStop();
-
+		
 		disconnectBeaconManager();
 	}
 
@@ -179,53 +206,6 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		}
 	}
 
-/*	// Methods implemented for BeaconManager.RangingListener
-	public void onBeaconsDiscovered(final Region region, final List<Beacon> beacons) {
-		String beaconID, beaconUniqueId;
-		String prox, text;
-
-		if (mGoogleApiClient.isConnected())
-			mLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-		else
-			mLocation = null;
-
-		for (Beacon beacon : beacons) {
-			BeaconInfo beaconInfo = new BeaconInfo(beacon, mLocation);
-			beaconID = beaconInfo.getBeaconUniqueKey();
-			prox = beaconInfo.getProximity();
-			beaconUniqueId = beaconInfo.getBeaconUniqueId();
-
-			text = "Discovered beacon name " + beaconUniqueId;
-			Log.v(TAG, text + " " + beaconID + " " + prox);
-
-			if (beaconInfo.isStaticBeacon()) {
-				// add to static beacon list and maintain the size at a max of 3
-				updateStaticBeaconList(beaconInfo);
-				displayStaticBeacons();
-				continue;
-			}
-			// if we picked up some random beacon that does not belong to this
-			// user, ignore it. This also ignores static beacons so that they do
-			// not get uploaded
-			if (!monitoredBeacons.containsKey(beaconID))
-				continue;
-
-			String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
-			StringBuffer textViewData = new StringBuffer(beaconUniqueId + " " + friendlyName + " - " + prox);
-			textViewData.append(" RSSI - " + beaconInfo.getRSSI());
-
-			updateTextView(beaconDisplay.get(beaconID), textViewData.toString());
-
-			if (isBeaconUploadable(beaconInfo)) {
-				beaconInfo.friendlyName = friendlyName;
-				Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
-				discoveredBeacons.put(beaconID, beaconInfo);
-				new BeaconUploader(this, mEmail, mToken, cognitoHelperObj, beaconInfo, staticBeacons,
-						System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
-			}
-		}
-	}
-*/
 	// methods to implement interface GenericBeaconUpdateReceiver
 	public void processStaticBeacon(BeaconInfo beaconInfo) {
 		updateStaticBeaconList(beaconInfo);
@@ -443,6 +423,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 							mRangingListener);
 					connectBeaconManager();
 					IS_INITIALIZED = true;
+					registerReceiver(mReceiver, filter);
 				}
 			});
 		}

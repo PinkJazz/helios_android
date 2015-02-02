@@ -7,8 +7,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
@@ -56,6 +59,27 @@ public class BluetoothMonitorService extends Service
 	// to upload to S3 and send messages to SQS
 	CognitoHelper cognitoHelperObj;
 
+	// define BroadCastReceiver to shut the service down if Bluetooth
+	// gets switched off while the service is running
+    private final IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+	    @Override
+	    public void onReceive(Context context, Intent intent) {
+	        final String action = intent.getAction();
+
+	        if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
+	            final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
+	                                                 BluetoothAdapter.ERROR);
+	            if (state == BluetoothAdapter.STATE_OFF || state == BluetoothAdapter.STATE_TURNING_OFF)	{ 
+	            	Helpers.displayToast(handler, context, "Shutting down Helios monitor", Toast.LENGTH_SHORT);
+	            	Log.i(TAG, "Killing service since Bluetooth was turned off");
+	            	BluetoothMonitorService.this.stopSelf();
+	            }
+	        }
+	    }
+	};
+
 	public void onCreate(){
 		con = this;
 		
@@ -63,6 +87,8 @@ public class BluetoothMonitorService extends Service
 		.addConnectionCallbacks(this)
 		.addOnConnectionFailedListener(this)
 		.addApi(LocationServices.API).build();
+	    // Register for broadcasts on BluetoothAdapter state change
+	    registerReceiver(mReceiver, filter);
 	}
 	
 	@Override
@@ -122,11 +148,13 @@ public class BluetoothMonitorService extends Service
 		kontaktBeaconManager = null;
 		if (mGoogleApiClient.isConnected())
 			mGoogleApiClient.disconnect();
+		unregisterReceiver(mReceiver);
 	}
 
 	
 	private void disconnectBeaconManager() {
-		kontaktBeaconManager.disconnectBeaconManager();
+		if(kontaktBeaconManager != null)
+			kontaktBeaconManager.disconnectBeaconManager();
 	}
 
 	private void connectBeaconManager() {
