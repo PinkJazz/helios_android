@@ -29,11 +29,8 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.location.LocationServices;
-import com.kontakt.sdk.android.device.Beacon;
-import com.kontakt.sdk.android.device.Region;
-import com.kontakt.sdk.android.manager.BeaconManager;
 
-public class BluetoothMonitorActivity extends Activity implements BeaconManager.RangingListener, ConnectionCallbacks,
+public class BluetoothMonitorActivity extends Activity implements GenericBeaconUpdateReceiver, ConnectionCallbacks,
 		OnConnectionFailedListener {
 
 	KontaktBeaconManagerBridge kontaktBeaconManager;
@@ -54,16 +51,17 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 
 	private List<TextView> textViews = new ArrayList<TextView>();
 	private List<TextView> staticBeaconTextViews = new ArrayList<TextView>();
-	
+
 	private TextView headerTextview;
 	private Map<String, BeaconInfo> discoveredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, BeaconInfo> monitoredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, BeaconInfo> staticBeacons = new HashMap<String, BeaconInfo>();
-	
+
 	private Map<String, TextView> beaconDisplay = new HashMap<String, TextView>();
-	
-	private boolean IS_INITIALIZED = false;  // see onResume for this variable's purpose
-	
+
+	private boolean IS_INITIALIZED = false; // see onResume for this variable's purpose
+	private GenericRangingListener mRangingListener = new GenericRangingListener(this, monitoredBeacons);
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -72,13 +70,14 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 					// run in UI thread
 
 		// assumes Bluetooth has been enabled before starting this activity
-		// Getting permission and activating Bluetooth should occur before starting this
-    	BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-    	if(mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()){
-    		Helpers.showAlert(this, "Bluetooth Adapter Error", "Bluetooth adapter is not working or is disabled");
-    		finish();
-    	}
-    	
+		// Getting permission and activating Bluetooth should occur before
+		// starting this
+		BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+		if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
+			Helpers.showAlert(this, "Bluetooth Adapter Error", "Bluetooth adapter is not working or is disabled");
+			finish();
+		}
+
 		Intent intent = getIntent();
 		mEmail = intent.getStringExtra(LoginActivity.EMAIL_MSG);
 		mToken = intent.getStringExtra(LoginActivity.TOKEN_MSG);
@@ -90,11 +89,11 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 
 		cognitoHelperObj = new CognitoHelper(this, mToken);
 		cognitoHelperObj.doCognitoLogin();
-		if(!Config.WiFiUploadOnly || Helpers.isWifiConnected(this))
+		if (!Config.WiFiUploadOnly || Helpers.isWifiConnected(this))
 			cognitoHelperObj.sendCognitoMessage(mEmail);
 		populateTextViewsList();
 
-	// download list of beacons belonging to this user
+		// download list of beacons belonging to this user
 		headerTextview.setText("Downloading beacons to monitor. Please wait...");
 		new Thread(new BeaconListDownloader()).start();
 	}
@@ -107,12 +106,11 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 		textViews.add((TextView) findViewById(R.id.tv4));
 		textViews.add((TextView) findViewById(R.id.tv5));
 		headerTextview = (TextView) findViewById(R.id.header);
-		
+
 		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_1));
 		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_2));
 		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_3));
 	}
-
 
 	protected void onStart() {
 		super.onStart();
@@ -120,20 +118,23 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 
 	protected void onResume() {
 		super.onResume();
-		// we don't want onResume to initialize when the activity is first opened 
-		// so we use the IS_INITIALIZED variable to make sure that the BeaconDownloader
+		// we don't want onResume to initialize when the activity is first
+		// opened
+		// so we use the IS_INITIALIZED variable to make sure that the
+		// BeaconDownloader
 		// has finished executing
-		if(IS_INITIALIZED && kontaktBeaconManager == null){
-			kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this, BluetoothMonitorActivity.this);
+		if (IS_INITIALIZED && kontaktBeaconManager == null) {
+			kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this,
+					mRangingListener);
 			connectBeaconManager();
-		}			
+		}
 	}
 
 	@Override
 	protected void onStop() {
 		super.onStop();
 
-		disconnectBeaconManager();		
+		disconnectBeaconManager();
 	}
 
 	@Override
@@ -147,7 +148,7 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 	}
 
 	private void disconnectBeaconManager() {
-		if(kontaktBeaconManager != null)
+		if (kontaktBeaconManager != null)
 			kontaktBeaconManager.disconnectBeaconManager();
 		kontaktBeaconManager = null;
 	}
@@ -158,7 +159,7 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 			kontaktBeaconManager.connectBeaconManager();
 			headerTextview.setText("Monitoring " + monitoredBeacons.size() + " beacons");
 		} catch (RemoteException e) {
-			showRemoteException(e);			
+			showRemoteException(e);
 		}
 	}
 
@@ -168,7 +169,7 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 		finish();
 	}
 
-	private void initializeBeaconDisplay(){
+	private void initializeBeaconDisplay() {
 		int r = 0;
 		for (String beaconID : monitoredBeacons.keySet()) {
 			if (r < textViews.size()) {
@@ -178,7 +179,7 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 		}
 	}
 
-	// Methods implemented for BeaconManager.RangingListener
+/*	// Methods implemented for BeaconManager.RangingListener
 	public void onBeaconsDiscovered(final Region region, final List<Beacon> beacons) {
 		String beaconID, beaconUniqueId;
 		String prox, text;
@@ -197,58 +198,99 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 			text = "Discovered beacon name " + beaconUniqueId;
 			Log.v(TAG, text + " " + beaconID + " " + prox);
 
-			if (beaconInfo.isStaticBeacon()){
-			// add to static beacon list and maintain the size at a max of 3
+			if (beaconInfo.isStaticBeacon()) {
+				// add to static beacon list and maintain the size at a max of 3
 				updateStaticBeaconList(beaconInfo);
-				displayStaticBeacons(prox, beaconInfo);
+				displayStaticBeacons();
 				continue;
 			}
 			// if we picked up some random beacon that does not belong to this
-			// user, ignore it. This also ignores static beacons so that they do not get uploaded
+			// user, ignore it. This also ignores static beacons so that they do
+			// not get uploaded
 			if (!monitoredBeacons.containsKey(beaconID))
 				continue;
 
 			String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
 			StringBuffer textViewData = new StringBuffer(beaconUniqueId + " " + friendlyName + " - " + prox);
 			textViewData.append(" RSSI - " + beaconInfo.getRSSI());
-			
+
 			updateTextView(beaconDisplay.get(beaconID), textViewData.toString());
 
 			if (isBeaconUploadable(beaconInfo)) {
 				beaconInfo.friendlyName = friendlyName;
 				Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
 				discoveredBeacons.put(beaconID, beaconInfo);
-				new BeaconUploader(this, mEmail, mToken, cognitoHelperObj, beaconInfo, staticBeacons, System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
+				new BeaconUploader(this, mEmail, mToken, cognitoHelperObj, beaconInfo, staticBeacons,
+						System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
 			}
 		}
 	}
+*/
+	// methods to implement interface GenericBeaconUpdateReceiver
+	public void processStaticBeacon(BeaconInfo beaconInfo) {
+		updateStaticBeaconList(beaconInfo);
+		displayStaticBeacons();
+	}
 
-	private void displayStaticBeacons(String prox, BeaconInfo beaconInfo) {
+	public void processMonitoredBeacon(BeaconInfo beaconInfo) {
+		String beaconID, beaconUniqueId;
+		String prox, text;
+
+		if (mGoogleApiClient.isConnected())
+			mLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+		else
+			mLocation = null;
+
+		beaconInfo.setLocation(mLocation);
+		beaconID = beaconInfo.getBeaconUniqueKey();
+		prox = beaconInfo.getProximity();
+		beaconUniqueId = beaconInfo.getBeaconUniqueId();
+
+		text = "Discovered beacon name " + beaconUniqueId;
+		Log.v(TAG, text + " " + beaconID + " " + prox);
+
+		String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
+		StringBuffer textViewData = new StringBuffer(beaconUniqueId + " " + friendlyName + " - " + prox);
+		textViewData.append(" RSSI - " + beaconInfo.getRSSI());
+
+		updateTextView(beaconDisplay.get(beaconID), textViewData.toString());
+
+		if (isBeaconUploadable(beaconInfo)) {
+			beaconInfo.friendlyName = friendlyName;
+			Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
+			discoveredBeacons.put(beaconID, beaconInfo);
+			new BeaconUploader(this, mEmail, mToken, cognitoHelperObj, beaconInfo, staticBeacons,
+					System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
+		}
+	}
+
+	private void displayStaticBeacons() {
 		// show the static beacons onscreen
 		List<BeaconInfo> beaconIDs = new ArrayList<BeaconInfo>(staticBeacons.values());
-		for(int i = 0; i < 3 && i < beaconIDs.size(); i++){
-			StringBuffer textViewData = new StringBuffer(beaconIDs.get(i).getBeaconUniqueId() + " - " + prox);
+		for (int i = 0; i < 3 && i < beaconIDs.size(); i++) {
+			StringBuffer textViewData = new StringBuffer(beaconIDs.get(i).getBeaconUniqueId() + " - "
+					+ beaconIDs.get(i).getProximity());
 			textViewData.append(" RSSI - " + beaconIDs.get(i).getRSSI());
 
 			updateTextView(staticBeaconTextViews.get(i), textViewData.toString());
 		}
 	}
-	
-	private Map<String, BeaconInfo> updateStaticBeaconList(BeaconInfo beacon){
+
+	private Map<String, BeaconInfo> updateStaticBeaconList(BeaconInfo beacon) {
 		String uniqueKey = beacon.getBeaconUniqueKey();
-		
+
 		Log.v(TAG, beacon.getBeaconUniqueId() + " is a static beacon");
 		staticBeacons.put(uniqueKey, beacon);
-		// if there are now more than 3 beacons in the map, we throw out 
+		// if there are now more than 3 beacons in the map, we throw out
 		// the oldest beacon observation in the map and put this one in
 		Long minTimestamp = Long.MAX_VALUE;
 		Long currentTimestamp;
 		String minKey = "";
-		
-		if(staticBeacons.size() > 3){
-			for(String observedStaticBeacon: staticBeacons.keySet()){
+
+		if (staticBeacons.size() > 3) {
+			for (String observedStaticBeacon : staticBeacons.keySet()) {
 				currentTimestamp = staticBeacons.get(observedStaticBeacon).getTimestamp();
-				if(currentTimestamp < minTimestamp){
+				if (currentTimestamp < minTimestamp) {
 					minTimestamp = currentTimestamp;
 					minKey = observedStaticBeacon;
 				}
@@ -258,7 +300,7 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 		}
 		return staticBeacons;
 	}
-	
+
 	private boolean isBeaconUploadable(BeaconInfo newBeaconInfo) {
 		// decides whether a beacon observation should be uploaded to S3 or not
 		// depending on when it was last seen
@@ -280,8 +322,10 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 				return false;
 		} else {
 			// proximity indicator has changed
-			// we assume if proximity indicator changes and the distance also changed
-			// we have moved but object has not so no need to upload its location
+			// we assume if proximity indicator changes and the distance also
+			// changed
+			// we have moved but object has not so no need to upload its
+			// location
 			if (dist > 10)
 				return false;
 			else {
@@ -355,11 +399,11 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 
 		public void run() {
 			String KEY_PREFIX = "";
-			try{
+			try {
 				KEY_PREFIX = cognitoHelperObj.getIdentityID();
-			}
-			catch(Exception e){
-				Helpers.displayToast(handler, con, "Unrecoverable error when logging into Amazon cognito", Toast.LENGTH_LONG);
+			} catch (Exception e) {
+				Helpers.displayToast(handler, con, "Unrecoverable error when logging into Amazon cognito",
+						Toast.LENGTH_LONG);
 				Log.d(TAG, "Cognito Login error - " + e.getMessage());
 				BluetoothMonitorActivity.this.finish();
 			}
@@ -372,13 +416,14 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 				BufferedReader reader = new BufferedReader(new InputStreamReader(istream));
 
 				while ((line = reader.readLine()) != null) {
-					String [] beaconDetails = line.split("\\s*,\\s*");
-					BeaconInfo beac = new BeaconInfo(beaconDetails[0], Integer.valueOf(beaconDetails[1]), 
+					String[] beaconDetails = line.split("\\s*,\\s*");
+					BeaconInfo beac = new BeaconInfo(beaconDetails[0], Integer.valueOf(beaconDetails[1]),
 							Integer.valueOf(beaconDetails[2]), beaconDetails[3]);
 					monitoredBeacons.put(beac.getBeaconUniqueKey(), beac);
-					
-					Log.i(TAG_DOWNLOAD, "Monitoring beacon " + beaconDetails[0] + " " + Integer.valueOf(beaconDetails[1]) + " " + 
-							Integer.valueOf(beaconDetails[2]) + " " + beaconDetails[3]);					
+
+					Log.i(TAG_DOWNLOAD,
+							"Monitoring beacon " + beaconDetails[0] + " " + Integer.valueOf(beaconDetails[1]) + " "
+									+ Integer.valueOf(beaconDetails[2]) + " " + beaconDetails[3]);
 					Log.i(TAG_DOWNLOAD, "Added beacon " + beac.getBeaconUniqueKey());
 				}
 				istream.close();
@@ -394,9 +439,10 @@ public class BluetoothMonitorActivity extends Activity implements BeaconManager.
 			BluetoothMonitorActivity.this.runOnUiThread(new Runnable() {
 				public void run() {
 					initializeBeaconDisplay();
-					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this, BluetoothMonitorActivity.this);
+					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this,
+							mRangingListener);
 					connectBeaconManager();
-					IS_INITIALIZED  = true;					
+					IS_INITIALIZED = true;
 				}
 			});
 		}

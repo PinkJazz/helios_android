@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import android.app.Service;
@@ -27,16 +26,9 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.location.LocationServices;
-import com.kontakt.sdk.android.configuration.ForceScanConfiguration;
-import com.kontakt.sdk.android.configuration.MonitorPeriod;
-import com.kontakt.sdk.android.connection.OnServiceBoundListener;
-import com.kontakt.sdk.android.device.Beacon;
-import com.kontakt.sdk.android.device.Region;
-import com.kontakt.sdk.android.factory.Filters;
-import com.kontakt.sdk.android.manager.BeaconManager;
 
 public class BluetoothMonitorService extends Service 
-	implements BeaconManager.RangingListener, ConnectionCallbacks, OnConnectionFailedListener {
+	implements GenericBeaconUpdateReceiver, ConnectionCallbacks, OnConnectionFailedListener {
 
 	private int NOTIFICATION_ID = 112;
 	private final String TAG = "Helios_" + getClass().getSimpleName();
@@ -53,11 +45,12 @@ public class BluetoothMonitorService extends Service
 	private GoogleApiClient mGoogleApiClient;
 	private Location mLocation;
 
-//	BeaconManager beaconManager;
 	KontaktBeaconManagerBridge kontaktBeaconManager;
 	private Map<String, BeaconInfo> discoveredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, BeaconInfo> monitoredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, BeaconInfo> staticBeacons = new HashMap<String, BeaconInfo>();
+
+	private GenericRangingListener mRangingListener = new GenericRangingListener(this, monitoredBeacons);
 
 	// used to log in to Amazon Web Services and create client object
 	// to upload to S3 and send messages to SQS
@@ -110,7 +103,7 @@ public class BluetoothMonitorService extends Service
 			Helpers.createStopPauseNotification(title, "Stop", "Pause",
 					this, BluetoothMonitorService.class, token, mEmail, NOTIFICATION_ID);
 			// initializeBeaconManager();
-			kontaktBeaconManager = new KontaktBeaconManagerBridge(this, this);
+			kontaktBeaconManager = new KontaktBeaconManagerBridge(this, mRangingListener);
 			connectBeaconManager();
 		}
 
@@ -150,7 +143,7 @@ public class BluetoothMonitorService extends Service
 		stopSelf();
 	}
 	
-	// Methods implemented for BeaconManager.RangingListener
+/*	// Methods implemented for BeaconManager.RangingListener
 	public void onBeaconsDiscovered(final Region region, final List<Beacon> beacons) {
 		String beaconID, beaconUniqueId;
 		String prox, text;
@@ -187,6 +180,39 @@ public class BluetoothMonitorService extends Service
 				discoveredBeacons.put(beaconID, beaconInfo);
 				new BeaconUploader(this, mEmail, token, cognitoHelperObj, beaconInfo, staticBeacons, System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
 			}
+		}
+	}
+*/
+	// methods to implement interface GenericBeaconUpdateReceiver
+	public void processStaticBeacon(BeaconInfo beaconInfo){
+		updateStaticBeaconList(beaconInfo);		
+	}
+	
+	public void processMonitoredBeacon(BeaconInfo beaconInfo) {
+		String beaconID, beaconUniqueId;
+		String prox, text;
+
+		if (mGoogleApiClient.isConnected())
+			mLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+		else
+			mLocation = null;
+
+		beaconInfo.setLocation(mLocation);
+		beaconID = beaconInfo.getBeaconUniqueKey();
+		prox = beaconInfo.getProximity();
+		beaconUniqueId = beaconInfo.getBeaconUniqueId();
+
+		text = "Discovered beacon name " + beaconUniqueId;
+		Log.v(TAG, text + " " + beaconID + " " + prox);
+
+		String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
+
+		if (isBeaconUploadable(beaconInfo)) {
+			beaconInfo.friendlyName = friendlyName;
+			Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
+			discoveredBeacons.put(beaconID, beaconInfo);
+			new BeaconUploader(this, mEmail, token, cognitoHelperObj, beaconInfo, staticBeacons,
+					System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
 		}
 	}
 
@@ -340,7 +366,7 @@ public class BluetoothMonitorService extends Service
 			// initialize beacon manager on UI thread because Kontakt.io SDK requires this
 			handler.post(new Runnable() {
 				public void run() {
-					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorService.this, BluetoothMonitorService.this);
+					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorService.this, mRangingListener);
 					connectBeaconManager();
 				}
 			});

@@ -15,7 +15,7 @@ class KontaktBeaconManagerBridge {
 	private Context con;
 	private final String TAG = "Helios_" + getClass().getSimpleName();
 
-	KontaktBeaconManagerBridge(Context con, BeaconManager.RangingListener rangeListener) {
+	KontaktBeaconManagerBridge(Context con, GenericRangingListener rangeListener) {
 		this.con = con;
 
 		// starts up Kontakt.io beacon manager
