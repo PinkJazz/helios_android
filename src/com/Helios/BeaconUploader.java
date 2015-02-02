@@ -3,25 +3,22 @@ package com.Helios;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.content.Context;
 import android.os.AsyncTask;
@@ -37,6 +34,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.sqs.AmazonSQSClient;
+
 
 class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
     private final String TAG = "Helios_" + getClass().getSimpleName(); 
@@ -166,15 +164,18 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 			return false;
 		}
 		// connection was opened successfully if we got here
-		ArrayList<NameValuePair> nameValuePairs = constructPayload();
-		try {
-			byte[] payload = getQuery(nameValuePairs);
+		String payloadObj = constructPayload();
+		try {			
 			conn.setDoOutput(true);
-			conn.setFixedLengthStreamingMode(payload.length);
+			conn.setRequestMethod("POST");  
+			conn.setFixedLengthStreamingMode(payloadObj.getBytes().length);
+			conn.setRequestProperty("Content-Type","application/json");   
 
-			OutputStream os = conn.getOutputStream();
+			OutputStreamWriter osw = new OutputStreamWriter(conn.getOutputStream());
 			Log.v(TAG, "Sending data now");
-			os.write(payload);
+			osw.write(payloadObj.toString());
+			osw.flush();
+			osw.close();
 			Log.v(TAG, "Response status code is " + conn.getResponseCode());
 			return true;
 
@@ -192,39 +193,46 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		}
 	}
 
-	private ArrayList<NameValuePair> constructPayload() {
+	private String constructPayload() {
 		// Add your data to be POSTed
-		ArrayList<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(20);
-		nameValuePairs.add(new BasicNameValuePair("Email", mEmail));
-		nameValuePairs.add(new BasicNameValuePair("Token", token));
+		try {
+			JSONObject payloadJSONObj = new JSONObject();
 
-		nameValuePairs.add(new BasicNameValuePair("UniqueKey", beaconInfo.getBeaconUniqueKey()));
-		nameValuePairs.add(new BasicNameValuePair("Timestamp", Long.toString(beaconInfo.getTimestamp())));
-		nameValuePairs.add(new BasicNameValuePair("Latitude", Double.toString(beaconInfo.getLocation()
-				.getLatitude())));
-		nameValuePairs.add(new BasicNameValuePair("Longitude", Double.toString(beaconInfo.getLocation()
-				.getLongitude())));
-		nameValuePairs.add(new BasicNameValuePair("Proximity", beaconInfo.getProximity()));
-		nameValuePairs.add(new BasicNameValuePair("FriendlyName", beaconInfo.friendlyName));
+			payloadJSONObj.put("Email", mEmail);
+			payloadJSONObj.put("Token", token);
+			
+			// put in details of observed beacon
+			JSONObject beaconObj = new JSONObject();
+			beaconObj.put("UniqueKey", beaconInfo.getBeaconUniqueKey());
+			beaconObj.put("Timestamp", Long.toString(beaconInfo.getTimestamp()));
+			beaconObj.put("Latitude", Double.toString(beaconInfo.getLocation().getLatitude()));
+			beaconObj.put("Longitude", Double.toString(beaconInfo.getLocation().getLongitude()));
+			beaconObj.put("Proximity", beaconInfo.getProximity());
+			beaconObj.put("FriendlyName", beaconInfo.friendlyName);
 
-		int i = 0;
-		for (BeaconInfo beacon : staticBeacons) {
-			i++;
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, beacon.getBeaconUniqueKey()));
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, beacon.getProximity()));
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, Double.toString(beacon.getRSSI())));
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, beacon.friendlyName));
+			payloadJSONObj.put("Beacon", beaconObj);
+			
+			// now put in details of static beacon, if any
+			JSONArray staticBeaconArr = new JSONArray();
+			int i = 0;
+			for (BeaconInfo beacon : staticBeacons) {
+				i++;
+				JSONObject staticBeacon = new JSONObject();
+
+				staticBeacon.put("StaticBeaconUniqueKey", beacon.getBeaconUniqueKey());
+				staticBeacon.put("StaticBeaconProximity", beacon.getProximity());
+				staticBeacon.put("StaticBeaconRSSI", Double.toString(beacon.getRSSI()));
+				staticBeacon.put("StaticBeaconFriendlyName", beacon.friendlyName);
+
+				staticBeaconArr.put(staticBeacon);
+			}
+			payloadJSONObj.put("Static Beacons", staticBeaconArr);
+			return payloadJSONObj.toString();
+
+		} catch (JSONException jse) {
+			Log.w(TAG, "JSON Exception " + jse.getMessage());
+			return null;
 		}
-
-		while (i < 3) {
-			// make sure there are always fields available for upto 3 static beacons
-			i++;
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconUniqueKey_" + i, ""));
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconProximity_" + i, ""));
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconRSSI_" + i, ""));
-			nameValuePairs.add(new BasicNameValuePair("StaticBeaconFriendlyName_" + i, ""));
-		}
-		return nameValuePairs;
 	}
 
 	protected void onError(String msg, Exception e) {
