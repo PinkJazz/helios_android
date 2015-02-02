@@ -171,46 +171,6 @@ public class BluetoothMonitorService extends Service
 		stopSelf();
 	}
 	
-/*	// Methods implemented for BeaconManager.RangingListener
-	public void onBeaconsDiscovered(final Region region, final List<Beacon> beacons) {
-		String beaconID, beaconUniqueId;
-		String prox, text;
-
-		if (mGoogleApiClient.isConnected())
-			mLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-		else
-			mLocation = null;
-
-		for (Beacon beacon : beacons) {
-			BeaconInfo beaconInfo = new BeaconInfo(beacon, mLocation);
-			beaconID = beaconInfo.getBeaconUniqueKey();
-			prox = beaconInfo.getProximity();
-			beaconUniqueId = beaconInfo.getBeaconUniqueId();
-
-			text = "Discovered beacon name " + beaconUniqueId;
-			Log.v(TAG, text + " " + beaconID + " " + prox);
-
-			if (beaconInfo.isStaticBeacon()){
-			// add to static beacon list and maintain the size at a max of 3
-				updateStaticBeaconList(beaconInfo);
-				continue;
-			}
-			// if we picked up some random beacon that does not belong to this
-			// user, ignore it. This also ignores static beacons so that they do not get uploaded
-			if (!monitoredBeacons.containsKey(beaconID))
-				continue;
-
-			String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
-			
-			if (isBeaconUploadable(beaconInfo)) {
-				beaconInfo.friendlyName = friendlyName;
-				Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
-				discoveredBeacons.put(beaconID, beaconInfo);
-				new BeaconUploader(this, mEmail, token, cognitoHelperObj, beaconInfo, staticBeacons, System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
-			}
-		}
-	}
-*/
 	// methods to implement interface GenericBeaconUpdateReceiver
 	public void processStaticBeacon(BeaconInfo beaconInfo){
 		updateStaticBeaconList(beaconInfo);		
