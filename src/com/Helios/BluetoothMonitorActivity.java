@@ -172,6 +172,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 
 		if (mGoogleApiClient.isConnected())
 			mGoogleApiClient.disconnect();
+		unregisterReceiver(mReceiver);
 	}
 
 	private void disconnectBeaconManager() {

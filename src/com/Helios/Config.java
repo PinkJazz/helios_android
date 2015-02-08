@@ -32,11 +32,11 @@ final class Config {
 	static final int STATIC_BEACON_OBSERVATION_LAG = 1000;
 	
 	static boolean WiFiUploadOnly = true;
-	static boolean DEBUG_SQS_ENABLED = false; // should be true unless we are debugging
+	static boolean DEBUG_SQS_ENABLED = true; // should be true unless we are debugging
 	
 	// target address to HTTP POST beacon data
-//	static final String POST_TARGET = "http://50.112.176.173:8080/test";
-	static final String POST_TARGET = "http://192.168.1.103:8080/test";
+	static final String POST_TARGET = "http://50.112.176.173:8080/test";
+//	static final String POST_TARGET = "http://192.168.1.103:8080/test";
 	
 	private Config(){} // no instantiation
 }
