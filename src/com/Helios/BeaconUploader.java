@@ -119,38 +119,7 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		return false;
 	}
 
-	private Boolean uploadBeacon() throws AmazonClientException, AmazonServiceException {
-		// uploads info regarding monitored beacon to S3 and sends a message to SQS
-		
-		Log.i(TAG, "Got identity ID " + KEY_PREFIX);
-		
-		String key = KEY_PREFIX + "/" + Config.BEACON_FOLDER + "/" + beaconInfo.getBeaconUniqueKey() + "/" + beaconInfo.getTimestamp();
-		ObjectMetadata met = new ObjectMetadata();
-		met.setContentType("text/plain");
-		
-		StringBuffer uploadText = new StringBuffer(beaconInfo.toString());
-		for(BeaconInfo beacon: staticBeacons){
-			uploadText.append(", " + beacon.getBeaconUniqueKey());
-			uploadText.append(", " + beacon.getProximity());
-			uploadText.append(", " + beacon.getRSSI() + "\n");					
-		}
-		
-		for(int i = staticBeacons.size(); i < 3; i++)
-			uploadText.append(", \n");
-		
-		met.setContentLength(uploadText.length());
-		InputStream is = new ByteArrayInputStream(uploadText.toString().getBytes());
-		PutObjectRequest req = new PutObjectRequest(Config.S3_BUCKET_NAME, key, is, met);
-				
-		PutObjectResult putResult = s3Client.putObject(req);
-		if (putResult != null)
-			CognitoHelper.sendSQSMessage(sqsQueue, key);
-		Log.i(TAG, "Upload successful");
-
-		return uploadPost();		
-	}
-
-	protected boolean uploadPost() {
+	protected boolean uploadBeacon() {
 		URL url;
 		HttpURLConnection conn;
 		try {
