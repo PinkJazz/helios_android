@@ -1,8 +1,8 @@
 package com.Helios;
 
-import java.io.ByteArrayInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
@@ -30,9 +30,6 @@ import android.widget.Toast;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.sqs.AmazonSQSClient;
 
 
@@ -99,6 +96,7 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		// we are either on Wifi connection or user is fine with using mobile data
 		// so go ahead with the upload
 		try {
+				debug_uploadToDBServlet();
 				return uploadBeacon();
 			}		
 		catch (AmazonServiceException ase) {
@@ -146,6 +144,18 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 			osw.flush();
 			osw.close();
 			Log.v(TAG, "Response status code is " + conn.getResponseCode());
+	    	StringBuffer jb = new StringBuffer();
+	    	  String line = null;
+	    	  try {
+	    	    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+	    	    while ((line = reader.readLine()) != null)
+	    	      jb.append(line);
+				reader.close();
+	    	  } catch (Exception e) { 
+	      	    Log.w(TAG, "Error reading request string" + e.toString());
+	    	  }
+	    	JSONObject response = new JSONObject(jb.toString());	    	
+			Log.i(TAG, "Response string is " + response.getString("CognitoID"));
 			return true;
 
 		} catch (ClientProtocolException e) {
@@ -162,6 +172,71 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		}
 	}
 
+	private boolean debug_uploadToDBServlet(){
+		URL url;
+		HttpURLConnection conn;
+		try {
+			url = new URL("http://50.112.176.173:8080/db");
+			conn = (HttpURLConnection) url.openConnection();
+		} catch (MalformedURLException mue) {
+			Log.w(TAG, "Malformed URL Exception " + mue.getMessage());
+			return false;
+		} catch (IOException e) {
+			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
+			return false;
+		}
+		// connection was opened successfully if we got here
+
+		JSONObject testObj = new JSONObject();
+		try{
+		testObj.put("Email", mEmail);
+		testObj.put("Token", token);
+		testObj.put("query", "get_beacons");
+		} catch (JSONException jse){
+			Log.w(TAG, "JSON Exception " + jse.getMessage());
+			return false;			
+		}
+		String payloadObj = testObj.toString();
+		try {			
+			conn.setDoOutput(true);
+			conn.setRequestMethod("POST");  
+			conn.setFixedLengthStreamingMode(payloadObj.getBytes().length);
+			conn.setRequestProperty("Content-Type","application/json");   
+
+			OutputStreamWriter osw = new OutputStreamWriter(conn.getOutputStream());
+			Log.v(TAG, "Sending data now");
+			osw.write(payloadObj.toString());
+			osw.flush();
+			osw.close();
+			Log.v(TAG, "Response status code is " + conn.getResponseCode());
+	    	StringBuffer jb = new StringBuffer();
+	    	  String line = null;
+	    	  try {
+	    	    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+	    	    while ((line = reader.readLine()) != null)
+	    	      jb.append(line);
+				reader.close();
+	    	  } catch (Exception e) { 
+	      	    Log.w(TAG, "Error reading request string" + e.toString());
+	    	  }
+	    	JSONObject response = new JSONObject(jb.toString());	    	
+			Log.i(TAG, "Response string from DBServlet is " + response.getString("Beacons"));
+			return true;
+
+		} catch (ClientProtocolException e) {
+			Log.w(TAG, "Protocol Exception when POSTing beacon data " + e.getMessage());
+			return false;
+		} catch (IOException e) {
+			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
+			return false;
+		} catch (Exception e) {
+			Log.w(TAG, "Exception when POSTing beacon data " + e.getMessage());
+			return false;
+		} finally {
+			conn.disconnect();
+		}
+		
+	}
 	private String constructPayload() {
 		// Add your data to be POSTed
 		try {

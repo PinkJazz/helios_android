@@ -36,7 +36,7 @@ final class Config {
 	
 	// target address to HTTP POST beacon data
 	static final String POST_TARGET = "http://50.112.176.173:8080/test";
-//	static final String POST_TARGET = "http://192.168.1.103:8080/test";
+//	static final String POST_TARGET = "http://192.168.1.23:8080/test";
 	
 	private Config(){} // no instantiation
 }

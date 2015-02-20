@@ -32,10 +32,7 @@ class CognitoHelper {
     
 	void doCognitoLogin() {
 		// log in with Cognito identity provider
-		/*cognitoProvider = new CognitoCachingCredentialsProvider(con,
-				Config.ACCOUNT_ID, Config.IDENTITY_POOL, Config.UNAUTH_ROLE_ARN,
-				Config.AUTH_ROLE_ARN, Config.COGNITO_REGION);
-		*/
+	
 		cognitoProvider = new CognitoCachingCredentialsProvider(con, Config.IDENTITY_POOL, Config.COGNITO_REGION);
 	
 		cognitoProvider.clear();

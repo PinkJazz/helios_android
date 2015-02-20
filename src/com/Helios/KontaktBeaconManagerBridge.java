@@ -7,6 +7,7 @@ import android.util.Log;
 import com.kontakt.sdk.android.configuration.ForceScanConfiguration;
 import com.kontakt.sdk.android.configuration.MonitorPeriod;
 import com.kontakt.sdk.android.connection.OnServiceBoundListener;
+import com.kontakt.sdk.android.data.RssiCalculators;
 import com.kontakt.sdk.android.factory.Filters;
 import com.kontakt.sdk.android.manager.BeaconManager;
 
@@ -20,10 +21,10 @@ class KontaktBeaconManagerBridge {
 
 		// starts up Kontakt.io beacon manager
 		beaconManager = BeaconManager.newInstance(con);
+        beaconManager.setRssiCalculator(RssiCalculators.newLimitedMeanRssiCalculator(5));
 		beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
 		beaconManager.setForceScanConfiguration(ForceScanConfiguration.DEFAULT);
 		beaconManager.addFilter(Filters.newProximityUUIDFilter(java.util.UUID.fromString(Config.PROXIMITY_UUID)));
-		// beaconManager.addFilter(Filters.newMajorFilter(29358));
 
 		beaconManager.registerRangingListener(rangeListener);		
 	}
