@@ -64,6 +64,16 @@ class TokenFetcherTask extends AsyncTask<Void, Void, String>{
 				return;
 			}
 			
+			if(mActivity.getActivityType() == Helpers.ActivityType.ADD_NEW_BEACONS){ 
+				// monitor for Bluetooth beacons
+				Intent intent = new Intent(mActivity, AddNewBeaconsActivity.class);
+				intent.putExtra(LoginActivity.TOKEN_MSG, token);
+				intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
+				mActivity.startActivity(intent);
+				Log.i(TAG, "Adding new beacons");
+				return;
+			}
+			
 			if(mActivity.getActivityType() == Helpers.ActivityType.BACKGROUND_BLUETOOTH_MONITOR){ 
 				// monitor for Bluetooth beacons
 				Intent intent = new Intent(mActivity, BluetoothMonitorService.class);

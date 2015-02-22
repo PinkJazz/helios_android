@@ -27,6 +27,13 @@
             android:onClick="monitorBluetoothService"/>
         
         <Button
+            android:id="@+id/add_new_beacons_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/AddNewBeacons"
+            android:onClick="AddNewBeacons"/>
+        
+        <Button
             android:id="@+id/logout_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

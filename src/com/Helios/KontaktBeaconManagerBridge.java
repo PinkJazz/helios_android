@@ -1,6 +1,7 @@
 package com.Helios;
 
 import android.content.Context;
+import android.os.Handler;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -24,7 +25,7 @@ class KontaktBeaconManagerBridge {
         beaconManager.setRssiCalculator(RssiCalculators.newLimitedMeanRssiCalculator(5));
 		beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
 		beaconManager.setForceScanConfiguration(ForceScanConfiguration.DEFAULT);
-		beaconManager.addFilter(Filters.newProximityUUIDFilter(java.util.UUID.fromString(Config.PROXIMITY_UUID)));
+		beaconManager.addFilter(Filters.newProximityUUIDFilter(java.util.UUID.fromString(Config.OLD_PROXIMITY_UUID)));
 
 		beaconManager.registerRangingListener(rangeListener);		
 	}
@@ -44,11 +45,22 @@ class KontaktBeaconManagerBridge {
 		beaconManager.connect(new OnServiceBoundListener() {
 			@Override
 			public void onServiceBound() {
-				try {
-					beaconManager.startRanging();
-				} catch (RemoteException e) {
-					showRemoteException(con, KontaktBeaconManagerBridge.this.TAG, e);
-				}
+				
+					new Handler(con.getMainLooper()).post(
+							new Runnable() {
+								public void run(){
+									try{
+										beaconManager.startRanging();
+										Log.v(TAG, "Started ranging");
+									} catch (RemoteException e) {
+										Log.e(TAG, "Remote exception " + e.getMessage());
+										showRemoteException(con, KontaktBeaconManagerBridge.this.TAG, e);
+									} catch (Exception e) {
+										Log.e(TAG, "Exception after starting ranging" + e.getMessage());
+									}
+								}
+							});
+//					beaconManager.startRanging();
 			}
 		});
 	}

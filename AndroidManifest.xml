@@ -29,6 +29,13 @@
                 android:value="com.Helios.LoginActivity" />
         </activity>
         
+        <activity
+            android:name="com.Helios.AddNewBeaconsActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.Helios.LoginActivity" />
+        </activity>
+        
         <service
             android:name=".BackgroundVideoRecorder"
             android:exported="false" >

@@ -4,17 +4,19 @@ import java.util.Comparator;
 
 import android.location.Location;
 
-import com.kontakt.sdk.android.device.Beacon;
+import com.kontakt.sdk.android.device.BeaconDevice;
 
 class BeaconInfo {
 	String proximityUUID;
 	int major, minor;
 	private long timestamp;
 	private Location mLocation;
-	Beacon beacon;
+	BeaconDevice beacon;
 	String friendlyName = "NONE";
+	String password;
+	int powerLevel;
 	
-	BeaconInfo(Beacon beacon, Location mLoc){
+	BeaconInfo(BeaconDevice beacon, Location mLoc){
 		this.beacon = beacon;
 		
 		this.proximityUUID = beacon.getProximityUUID().toString();
@@ -30,6 +32,15 @@ class BeaconInfo {
 		this.major = major;
 		this.minor = minor;
 		this.friendlyName = friendlyName;
+	}
+
+	BeaconInfo(String proximityUUID, int major, int minor, String friendlyName, String password, int powerLevel){
+		this.proximityUUID = proximityUUID;
+		this.major = major;
+		this.minor = minor;
+		this.friendlyName = friendlyName;
+		this.password = password;
+		this.powerLevel = powerLevel;
 	}
 
 	String getBeaconUniqueKey(){
@@ -68,8 +79,7 @@ class BeaconInfo {
 	
 	boolean isStaticBeacon(){
 		// true if the major ID of the beacon is within the range specified in the Config file
-		if(major >= Config.STATIC_BEACON_MAJOR_ID_LOWER_BOUND && 
-				major <= Config.STATIC_BEACON_MAJOR_ID_UPPER_BOUND)
+		if(proximityUUID.equals(Config.OLD_STATIC_PROXIMITY_UUID))
 			return true;
 		return false;
 	}

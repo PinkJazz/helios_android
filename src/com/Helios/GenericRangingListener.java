@@ -3,7 +3,9 @@ package com.Helios;
 import java.util.List;
 import java.util.Map;
 
-import com.kontakt.sdk.android.device.Beacon;
+import android.util.Log;
+
+import com.kontakt.sdk.android.device.BeaconDevice;
 import com.kontakt.sdk.android.device.Region;
 import com.kontakt.sdk.android.manager.BeaconManager;
 
@@ -22,12 +24,14 @@ class GenericRangingListener implements BeaconManager.RangingListener{
 		this.monitoredBeacons = monitoredBeacons;
 	}
 	
-	public void onBeaconsDiscovered(final Region region, final List<Beacon> beacons) {
+	public void onBeaconsDiscovered(final Region region, final List<BeaconDevice> beacons) {
 
-		for (Beacon beacon : beacons) {
+		for (BeaconDevice beacon : beacons) {
 			BeaconInfo beaconInfo = new BeaconInfo(beacon, null);
 			beaconID = beaconInfo.getBeaconUniqueKey();
-
+			beaconInfo.friendlyName = monitoredBeacons.get(beaconID).friendlyName;
+			
+			Log.v(TAG, "Ranging picked up " + beaconInfo.friendlyName + " " + beaconID);
 			if (beaconInfo.isStaticBeacon()){
 			// let the update receiver know that a static beacon was discovered
 				updateReceiver.processStaticBeacon(beaconInfo);

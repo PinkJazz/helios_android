@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Handler;
+import android.widget.TextView;
 import android.widget.Toast;
 
 // Miscellaneous support functions used by various classes
@@ -17,7 +18,8 @@ class Helpers {
 
 	private Helpers(){}	// not to be instantiated
 	
-	static enum ActivityType {RECORD_VIDEO, FOREGROUND_BLUETOOTH_MONITOR, BACKGROUND_BLUETOOTH_MONITOR}
+	static enum ActivityType {RECORD_VIDEO, FOREGROUND_BLUETOOTH_MONITOR, BACKGROUND_BLUETOOTH_MONITOR
+				, ADD_NEW_BEACONS}
 
 	static boolean isWifiConnected(Context con){
 		ConnectivityManager connectivity = (ConnectivityManager) con.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -70,6 +72,16 @@ class Helpers {
 		alertDialog.show();
     }
     
+	static void updateTextView(Handler handler, final TextView tv, final String text) {
+		// TODO: there is probably a cleaner way to replace calls to this method
+		// with a call to runOnUiThread
+		handler.post(new Runnable() {
+			public void run() {
+				tv.setText(text);
+			}
+		});
+	}
+
 	static void createStopPauseNotification(String title, String stopText, String pauseText, 
 			Service con, Class<?> serviceClass, String token, String mEmail, int NOTIFICATION_ID) {
 

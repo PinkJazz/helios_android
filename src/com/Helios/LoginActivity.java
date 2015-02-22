@@ -154,6 +154,13 @@ public class LoginActivity extends Activity {
 	}
 
     /** Called by button in the layout */
+    public void AddNewBeacons(View view) {
+    	activityType = Helpers.ActivityType.ADD_NEW_BEACONS;
+    	
+    	checkBluetooth();
+    }
+
+    /** Called by button in the layout */
     public void monitorBluetooth(View view) {
     	activityType = Helpers.ActivityType.FOREGROUND_BLUETOOTH_MONITOR;
     	

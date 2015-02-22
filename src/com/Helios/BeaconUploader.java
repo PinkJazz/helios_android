@@ -121,7 +121,7 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		URL url;
 		HttpURLConnection conn;
 		try {
-			url = new URL(Config.POST_TARGET);
+			url = new URL(Config.BEACON_UPLOAD_POST_TARGET);
 			conn = (HttpURLConnection) url.openConnection();
 		} catch (MalformedURLException mue) {
 			Log.w(TAG, "Malformed URL Exception " + mue.getMessage());
