@@ -1,5 +1,7 @@
 package com.Helios;
 
+import java.util.Map;
+
 import android.content.Context;
 import android.os.Handler;
 import android.os.RemoteException;
@@ -9,6 +11,7 @@ import com.kontakt.sdk.android.configuration.ForceScanConfiguration;
 import com.kontakt.sdk.android.configuration.MonitorPeriod;
 import com.kontakt.sdk.android.connection.OnServiceBoundListener;
 import com.kontakt.sdk.android.data.RssiCalculators;
+import com.kontakt.sdk.android.factory.AdvertisingPackage;
 import com.kontakt.sdk.android.factory.Filters;
 import com.kontakt.sdk.android.manager.BeaconManager;
 
@@ -16,9 +19,9 @@ class KontaktBeaconManagerBridge {
 	private BeaconManager beaconManager;
 	private Context con;
 	private final String TAG = "Helios_" + getClass().getSimpleName();
-
-	KontaktBeaconManagerBridge(Context con, GenericRangingListener rangeListener) {
-		this.con = con;
+	
+	KontaktBeaconManagerBridge(Context con, GenericRangingListener rangeListener, final Map<String, Boolean> UUIDMap) {
+		this.con = con;		
 
 		// starts up Kontakt.io beacon manager
 		beaconManager = BeaconManager.newInstance(con);
@@ -26,6 +29,16 @@ class KontaktBeaconManagerBridge {
 		beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
 		beaconManager.setForceScanConfiguration(ForceScanConfiguration.DEFAULT);
 		beaconManager.addFilter(Filters.newProximityUUIDFilter(java.util.UUID.fromString(Config.OLD_PROXIMITY_UUID)));
+		
+/*        beaconManager.addFilter(new Filters.CustomFilter() { //create your customized filter
+        	@Override
+        	public Boolean apply(AdvertisingPackage advertisingPackage) {
+        		String beaconID = advertisingPackage.getProximityUUID().toString();               		
+        		if(UUIDMap.containsKey(beaconID))
+        			return true;
+        		return false;
+        	}
+        	}); */
 
 		beaconManager.registerRangingListener(rangeListener);		
 	}
@@ -60,7 +73,6 @@ class KontaktBeaconManagerBridge {
 									}
 								}
 							});
-//					beaconManager.startRanging();
 			}
 		});
 	}

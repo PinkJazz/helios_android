@@ -1,5 +1,8 @@
 package com.Helios;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.PendingIntent;
@@ -80,6 +83,18 @@ class Helpers {
 				tv.setText(text);
 			}
 		});
+	}
+
+	static Map<String, Boolean> getUUIDMap(){
+	// creates Map of UUID's that we will monitor. Used to send to the beaconManager class
+		Map<String, Boolean> m = new HashMap<String, Boolean>();
+		
+		m.put(Config.DYNAMIC_PROXIMITY_UUID, false);
+		m.put(Config.STATIC_PROXIMITY_UUID, false);
+		m.put(Config.OLD_PROXIMITY_UUID, false);
+		m.put(Config.OLD_STATIC_PROXIMITY_UUID, false);
+		
+		return m;
 	}
 
 	static void createStopPauseNotification(String title, String stopText, String pauseText, 

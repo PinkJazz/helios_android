@@ -54,7 +54,8 @@ public class BluetoothMonitorService extends Service
 	private Map<String, BeaconInfo> staticBeacons = new HashMap<String, BeaconInfo>();
 
 	private GenericRangingListener mRangingListener = new GenericRangingListener(this, monitoredBeacons);
-
+	private Map<String, Boolean> UUIDMap = Helpers.getUUIDMap();
+	
 	// used to log in to Amazon Web Services and create client object
 	// to upload to S3 and send messages to SQS
 	CognitoHelper cognitoHelperObj;
@@ -129,7 +130,7 @@ public class BluetoothMonitorService extends Service
 			Helpers.createStopPauseNotification(title, "Stop", "Pause",
 					this, BluetoothMonitorService.class, token, mEmail, NOTIFICATION_ID);
 			// initializeBeaconManager();
-			kontaktBeaconManager = new KontaktBeaconManagerBridge(this, mRangingListener);
+			kontaktBeaconManager = new KontaktBeaconManagerBridge(this, mRangingListener, UUIDMap);
 			connectBeaconManager();
 		}
 
@@ -354,7 +355,7 @@ public class BluetoothMonitorService extends Service
 			// initialize beacon manager on UI thread because Kontakt.io SDK requires this
 			handler.post(new Runnable() {
 				public void run() {
-					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorService.this, mRangingListener);
+					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorService.this, mRangingListener, UUIDMap);
 					connectBeaconManager();
 				}
 			});

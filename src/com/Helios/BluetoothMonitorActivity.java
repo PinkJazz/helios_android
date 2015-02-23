@@ -63,6 +63,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 
 	private boolean IS_INITIALIZED = false; // see onResume for this variable's purpose
 	private GenericRangingListener mRangingListener = new GenericRangingListener(this, monitoredBeacons);
+	private Map<String, Boolean> UUIDMap = Helpers.getUUIDMap();
 
 	// define BroadCastReceiver to shut the service down if Bluetooth
 	// gets switched off while the service is running
@@ -146,7 +147,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		// BeaconDownloader has finished executing
 		if (IS_INITIALIZED && kontaktBeaconManager == null) {
 			kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this,
-					mRangingListener);
+					mRangingListener, UUIDMap);
 			connectBeaconManager();
 			registerReceiver(mReceiver, filter);
 		}
@@ -234,7 +235,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		StringBuffer textViewData = new StringBuffer(beaconUniqueId + " " + friendlyName + " - " + prox);
 		textViewData.append(" RSSI - " + beaconInfo.getRSSI());
 
-		updateTextView(beaconDisplay.get(beaconID), textViewData.toString());
+		Helpers.updateTextView(handler, beaconDisplay.get(beaconID), textViewData.toString());
 
 		if (isBeaconUploadable(beaconInfo)) {
 			beaconInfo.friendlyName = friendlyName;
@@ -253,7 +254,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 					+ beaconIDs.get(i).getProximity());
 			textViewData.append(" RSSI - " + beaconIDs.get(i).getRSSI());
 
-			updateTextView(staticBeaconTextViews.get(i), textViewData.toString());
+			Helpers.updateTextView(handler, staticBeaconTextViews.get(i), textViewData.toString());
 		}
 	}
 
@@ -321,16 +322,6 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 					return false;
 			}
 		}
-	}
-
-	private void updateTextView(final TextView tv, final String text) {
-		// TODO: there is probably a cleaner way to replace calls to this method
-		// with a call to runOnUiThread
-		handler.post(new Runnable() {
-			public void run() {
-				tv.setText(text);
-			}
-		});
 	}
 
 	/*
@@ -421,7 +412,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 				public void run() {
 					initializeBeaconDisplay();
 					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this,
-							mRangingListener);
+							mRangingListener, UUIDMap);
 					connectBeaconManager();
 					IS_INITIALIZED = true;
 					registerReceiver(mReceiver, filter);
