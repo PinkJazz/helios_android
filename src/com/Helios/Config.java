@@ -40,9 +40,10 @@ final class Config {
 	// target address to HTTP POST beacon data
 	// target address to HTTP POST beacon data
 	static final String BEACON_UPLOAD_POST_TARGET = "http://50.112.176.173:8080/test";	
-	static final String BEACON_LIST_DOWNLOAD_POST_TARGET = "http://50.112.176.173:8080/db";	
-
-	static final String DEBUG_TEST_POST_TARGET = "http://192.168.1.23:8080/test";
+	static final String BEACON_LIST_DOWNLOAD_POST_TARGET = "http://50.112.176.173:8080/db";
+	static final String NEW_BEACON_ADDED_POST_TARGET = "http://50.112.176.173:8080/db";
+	
+	static final String DEBUG_TEST_POST_TARGET = "http://160.39.241.244:8080/test";
 	
 	
 	private Config(){} // no instantiation

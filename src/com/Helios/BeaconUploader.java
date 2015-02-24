@@ -4,17 +4,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -26,11 +22,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
-
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.sqs.AmazonSQSClient;
 
 
 class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
@@ -46,8 +37,6 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 	protected String token;
 	private boolean WifiUploadOnly;
 
-	private AmazonS3Client s3Client;
-	private AmazonSQSClient sqsQueue;
 	private CognitoHelper cognitoHelperObj;
 	
 	private BeaconInfo beaconInfo;
@@ -61,8 +50,6 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		this.token = token;
 		
 		this.cognitoHelperObj = cognitoHelper;
-		this.s3Client = cognitoHelper.s3Client;
-		this.sqsQueue = cognitoHelper.sqsQueue;
 		
 		this.beaconInfo = beaconInfo;
 		this.WifiUploadOnly = WifiUploadOnly;
@@ -96,20 +83,8 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		// we are either on Wifi connection or user is fine with using mobile data
 		// so go ahead with the upload
 		try {
-				debug_uploadToDBServlet();
-				return uploadBeacon();
+				new ServletUploaderAsyncTask(con, constructPayload(), Config.BEACON_UPLOAD_POST_TARGET).execute();
 			}		
-		catch (AmazonServiceException ase) {
-            onError("AmazonServiceException", ase);
-            Log.e(TAG, "Error Message:    " + ase.getMessage());
-            Log.e(TAG, "HTTP Status Code: " + ase.getStatusCode());
-            Log.e(TAG, "AWS Error Code:   " + ase.getErrorCode());
-            Log.e(TAG, "Error Type:       " + ase.getErrorType());
-            Log.e(TAG, "Request ID:       " + ase.getRequestId());
-        } catch (AmazonClientException ace) {
-            onError("Caught an AmazonClientException", ace);
-            Log.e(TAG, "Error Message: " + ace.getMessage());
-        }
 		catch (Exception ex) {
 			onError("Following Error occured, please try again. "
 					+ ex.getMessage(), ex);
@@ -117,126 +92,6 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 		return false;
 	}
 
-	protected boolean uploadBeacon() {
-		URL url;
-		HttpURLConnection conn;
-		try {
-			url = new URL(Config.BEACON_UPLOAD_POST_TARGET);
-			conn = (HttpURLConnection) url.openConnection();
-		} catch (MalformedURLException mue) {
-			Log.w(TAG, "Malformed URL Exception " + mue.getMessage());
-			return false;
-		} catch (IOException e) {
-			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		}
-		// connection was opened successfully if we got here
-		String payloadObj = constructPayload();
-		try {			
-			conn.setDoOutput(true);
-			conn.setRequestMethod("POST");  
-			conn.setFixedLengthStreamingMode(payloadObj.getBytes().length);
-			conn.setRequestProperty("Content-Type","application/json");   
-
-			OutputStreamWriter osw = new OutputStreamWriter(conn.getOutputStream());
-			Log.v(TAG, "Sending data now");
-			osw.write(payloadObj.toString());
-			osw.flush();
-			osw.close();
-			Log.v(TAG, "Response status code is " + conn.getResponseCode());
-	    	StringBuffer jb = new StringBuffer();
-	    	  String line = null;
-	    	  try {
-	    	    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-	    	    while ((line = reader.readLine()) != null)
-	    	      jb.append(line);
-				reader.close();
-	    	  } catch (Exception e) { 
-	      	    Log.w(TAG, "Error reading request string" + e.toString());
-	    	  }
-	    	JSONObject response = new JSONObject(jb.toString());	    	
-			Log.i(TAG, "Response string is " + response.getString("CognitoID"));
-			return true;
-
-		} catch (ClientProtocolException e) {
-			Log.w(TAG, "Protocol Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		} catch (IOException e) {
-			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		} catch (Exception e) {
-			Log.w(TAG, "Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		} finally {
-			conn.disconnect();
-		}
-	}
-
-	private boolean debug_uploadToDBServlet(){
-		URL url;
-		HttpURLConnection conn;
-		try {
-			url = new URL("http://50.112.176.173:8080/db");
-			conn = (HttpURLConnection) url.openConnection();
-		} catch (MalformedURLException mue) {
-			Log.w(TAG, "Malformed URL Exception " + mue.getMessage());
-			return false;
-		} catch (IOException e) {
-			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		}
-		// connection was opened successfully if we got here
-
-		JSONObject testObj = new JSONObject();
-		try{
-		testObj.put("Email", mEmail);
-		testObj.put("Token", token);
-		testObj.put("query", "get_beacons");
-		} catch (JSONException jse){
-			Log.w(TAG, "JSON Exception " + jse.getMessage());
-			return false;			
-		}
-		String payloadObj = testObj.toString();
-		try {			
-			conn.setDoOutput(true);
-			conn.setRequestMethod("POST");  
-			conn.setFixedLengthStreamingMode(payloadObj.getBytes().length);
-			conn.setRequestProperty("Content-Type","application/json");   
-
-			OutputStreamWriter osw = new OutputStreamWriter(conn.getOutputStream());
-			Log.v(TAG, "Sending data now");
-			osw.write(payloadObj.toString());
-			osw.flush();
-			osw.close();
-			Log.v(TAG, "Response status code is " + conn.getResponseCode());
-	    	StringBuffer jb = new StringBuffer();
-	    	  String line = null;
-	    	  try {
-	    	    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-	    	    while ((line = reader.readLine()) != null)
-	    	      jb.append(line);
-				reader.close();
-	    	  } catch (Exception e) { 
-	      	    Log.w(TAG, "Error reading request string" + e.toString());
-	    	  }
-	    	JSONObject response = new JSONObject(jb.toString());	    	
-			Log.i(TAG, "Response string from DBServlet is " + response.getString("Beacons"));
-			return true;
-
-		} catch (ClientProtocolException e) {
-			Log.w(TAG, "Protocol Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		} catch (IOException e) {
-			Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		} catch (Exception e) {
-			Log.w(TAG, "Exception when POSTing beacon data " + e.getMessage());
-			return false;
-		} finally {
-			conn.disconnect();
-		}
-		
-	}
 	private String constructPayload() {
 		// Add your data to be POSTed
 		try {
@@ -258,9 +113,7 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 			
 			// now put in details of static beacon, if any
 			JSONArray staticBeaconArr = new JSONArray();
-			int i = 0;
 			for (BeaconInfo beacon : staticBeacons) {
-				i++;
 				JSONObject staticBeacon = new JSONObject();
 
 				staticBeacon.put("StaticBeaconUniqueKey", beacon.getBeaconUniqueKey());
@@ -284,25 +137,5 @@ class BeaconUploader extends AsyncTask<Void, Void, Boolean>{
 			Log.e(TAG, "Exception: ", e);
 		}
 		Helpers.displayToast(handler, con, msg, Toast.LENGTH_SHORT);; // will be run in UI thread
-	}
-	
-	private byte[] getQuery(List<NameValuePair> params) throws UnsupportedEncodingException
-	{
-	    StringBuilder result = new StringBuilder();
-	    boolean first = true;
-
-	    for (NameValuePair pair : params)
-	    {
-	        if (first)
-	            first = false;
-	        else
-	            result.append("&");
-
-	        result.append(URLEncoder.encode(pair.getName(), "UTF-8"));
-	        result.append("=");
-	        result.append(URLEncoder.encode(pair.getValue(), "UTF-8"));
-	    }
-
-	    return result.toString().getBytes();
 	}
 }

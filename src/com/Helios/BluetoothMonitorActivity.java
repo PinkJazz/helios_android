@@ -3,10 +3,19 @@ package com.Helios;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.http.client.ClientProtocolException;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -23,9 +32,6 @@ import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
@@ -119,7 +125,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 
 		// download list of beacons belonging to this user
 		headerTextview.setText("Downloading beacons to monitor. Please wait...");
-		new Thread(new BeaconListDownloader()).start();
+		new Thread(new BeaconListDownloader(this, mEmail, mToken)).start();
 	}
 
 	private void populateTextViewsList() {
@@ -365,8 +371,14 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		// must be called after logging in via Cognito
 
 		private final String TAG_DOWNLOAD = "Helios_" + getClass().getSimpleName();
-
-		BeaconListDownloader() {
+		private final String mEmail;
+		private final String mToken;
+		private Context parent;
+		
+		BeaconListDownloader(Context parentActivity, String email, String token) {
+			mEmail = email;
+			mToken = token;
+			parent = parentActivity;
 		}
 
 		public void run() {
@@ -374,50 +386,122 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 			try {
 				KEY_PREFIX = cognitoHelperObj.getIdentityID();
 			} catch (Exception e) {
-				Helpers.displayToast(handler, con, "Unrecoverable error when logging into Amazon cognito",
+				Helpers.displayToast(handler, parent, "Unrecoverable error when logging into Amazon cognito",
 						Toast.LENGTH_LONG);
 				Log.d(TAG, "Cognito Login error - " + e.getMessage());
 				BluetoothMonitorActivity.this.finish();
 			}
-			String key = KEY_PREFIX + Config.BEACON_LIST;
-
-			String line;
-			try {
-				S3ObjectInputStream istream = cognitoHelperObj.s3Client.getObject(Config.S3_BUCKET_NAME, key)
-						.getObjectContent();
-				BufferedReader reader = new BufferedReader(new InputStreamReader(istream));
-
-				while ((line = reader.readLine()) != null) {
-					String[] beaconDetails = line.split("\\s*,\\s*");
-					BeaconInfo beac = new BeaconInfo(beaconDetails[0], Integer.valueOf(beaconDetails[1]),
-							Integer.valueOf(beaconDetails[2]), beaconDetails[3]);
-					monitoredBeacons.put(beac.getBeaconUniqueKey(), beac);
-
-					Log.i(TAG_DOWNLOAD,
-							"Monitoring beacon " + beaconDetails[0] + " " + Integer.valueOf(beaconDetails[1]) + " "
-									+ Integer.valueOf(beaconDetails[2]) + " " + beaconDetails[3]);
-					Log.i(TAG_DOWNLOAD, "Added beacon " + beac.getBeaconUniqueKey());
-				}
-				istream.close();
-			} catch (AmazonServiceException ase) {
-				Log.i(TAG_DOWNLOAD, key + " file could be missing or invalid - " + ase.getMessage());
-			} catch (AmazonClientException ace) {
-				Log.i(TAG_DOWNLOAD, key + " file could be missing or invalid - " + ace.getMessage());
-			} catch (IOException ioe) {
-				Log.e(TAG_DOWNLOAD, key + " file could be missing or invalid - " + ioe.getMessage());
+			try{
+				downloadListFromRDS();
+			} catch(JSONException jse){
+				Log.d(TAG, "Error parsing list of beacons to monitor - " + jse.getMessage());
+				BluetoothMonitorActivity.this.finish();				
 			}
 			// initialize beacon manager on UI thread because Kontakt.io SDK
 			// requires this
-			BluetoothMonitorActivity.this.runOnUiThread(new Runnable() {
+			handler.post(new Runnable() {
 				public void run() {
 					initializeBeaconDisplay();
-					kontaktBeaconManager = new KontaktBeaconManagerBridge(BluetoothMonitorActivity.this,
-							mRangingListener, UUIDMap);
+					kontaktBeaconManager = new KontaktBeaconManagerBridge(parent, mRangingListener, Helpers.getUUIDMap());
 					connectBeaconManager();
 					IS_INITIALIZED = true;
 					registerReceiver(mReceiver, filter);
 				}
 			});
+		}
+		
+		private void downloadListFromRDS() throws JSONException{
+			String uniqueID, friendlyName;
+			int major, minor;
+			
+			JSONObject serverResponse = getBeaconList();
+			
+			JSONArray beaconArray = serverResponse.getJSONArray("Beacons");
+			for(int i = 0; i < beaconArray.length(); i++){
+				JSONObject beacon = beaconArray.getJSONObject(i);
+				
+				uniqueID = beacon.getString("Unique_id");
+				friendlyName = beacon.getString("Friendly_name");;
+				major = beacon.getInt("Major_id");
+				minor = beacon.getInt("Minor_id");
+				
+				BeaconInfo beac = new BeaconInfo(uniqueID, major, minor, friendlyName);
+				monitoredBeacons.put(beac.getBeaconUniqueKey(), beac);
+
+				Log.i(TAG_DOWNLOAD,
+						"Monitoring beacon " + uniqueID + " " + major + " "
+								+ minor + " " + friendlyName);
+				Log.i(TAG_DOWNLOAD, "Added beacon " + beac.getBeaconUniqueKey());				
+			}			
+		}
+		
+		private JSONObject getBeaconList(){
+			URL url;
+			HttpURLConnection conn;
+			try {
+				url = new URL(Config.BEACON_LIST_DOWNLOAD_POST_TARGET);
+				conn = (HttpURLConnection) url.openConnection();
+			} catch (MalformedURLException mue) {
+				Log.w(TAG, "Malformed URL Exception " + mue.getMessage());
+				return null;
+			} catch (IOException e) {
+				Log.w(TAG, "Network Exception when POSTing beacon data " + e.getMessage());
+				return null;
+			}
+			// connection was opened successfully if we got here
+
+			try {			
+				JSONObject requestObj = getRequestObj();
+				String payloadObj = requestObj.toString();
+
+				conn.setDoOutput(true);
+				conn.setRequestMethod("POST");  
+				conn.setFixedLengthStreamingMode(payloadObj.getBytes().length);
+				conn.setRequestProperty("Content-Type","application/json");   
+
+				OutputStreamWriter osw = new OutputStreamWriter(conn.getOutputStream());
+				Log.v(TAG, "Sending data now");
+				osw.write(payloadObj.toString());
+				osw.flush();
+				osw.close();
+				Log.v(TAG, "Response status code is " + conn.getResponseCode());
+		    	StringBuffer jb = new StringBuffer();
+		    	  String line = null;
+		    	  try {
+		    	    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+		    	    while ((line = reader.readLine()) != null)
+		    	      jb.append(line);
+					reader.close();
+		    	  } catch (Exception e) { 
+		      	    Log.w(TAG, "Error reading request string" + e.toString());
+		    	  }
+		    	JSONObject response = new JSONObject(jb.toString());	    	
+				Log.i(TAG, "Response string from DBServlet is " + response.getString("Beacons"));
+				return response;
+
+			} catch (ClientProtocolException e) {
+				Log.w(TAG, "Protocol Exception when downloading beacon data " + e.getMessage());
+				return null;
+			} catch (IOException e) {
+				Log.w(TAG, "Network Exception when downloading beacon data " + e.getMessage());
+				return null;
+			} catch (Exception e) {
+				Log.w(TAG, "Exception when downloading beacon data " + e.getMessage());
+				return null;
+			} finally {
+				conn.disconnect();
+			}	
+		}
+
+		private JSONObject getRequestObj() throws JSONException{
+			// create request object to ask servlet to send list of beacons
+			JSONObject requestObj = new JSONObject();
+			
+			requestObj.put("Email", mEmail);
+			requestObj.put("Token", mToken);
+			requestObj.put("query", "get_beacons");
+			
+			return requestObj;
 		}
 	}
 }

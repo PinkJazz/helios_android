@@ -28,9 +28,9 @@ class KontaktBeaconManagerBridge {
         beaconManager.setRssiCalculator(RssiCalculators.newLimitedMeanRssiCalculator(5));
 		beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
 		beaconManager.setForceScanConfiguration(ForceScanConfiguration.DEFAULT);
-		beaconManager.addFilter(Filters.newProximityUUIDFilter(java.util.UUID.fromString(Config.OLD_PROXIMITY_UUID)));
+	//	beaconManager.addFilter(Filters.newProximityUUIDFilter(java.util.UUID.fromString(Config.OLD_PROXIMITY_UUID)));
 		
-/*        beaconManager.addFilter(new Filters.CustomFilter() { //create your customized filter
+        beaconManager.addFilter(new Filters.CustomFilter() { //create your customized filter
         	@Override
         	public Boolean apply(AdvertisingPackage advertisingPackage) {
         		String beaconID = advertisingPackage.getProximityUUID().toString();               		
@@ -38,7 +38,7 @@ class KontaktBeaconManagerBridge {
         			return true;
         		return false;
         	}
-        	}); */
+        	}); 
 
 		beaconManager.registerRangingListener(rangeListener);		
 	}
