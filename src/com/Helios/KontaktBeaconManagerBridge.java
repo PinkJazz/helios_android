@@ -33,9 +33,11 @@ class KontaktBeaconManagerBridge {
         beaconManager.addFilter(new Filters.CustomFilter() { //create your customized filter
         	@Override
         	public Boolean apply(AdvertisingPackage advertisingPackage) {
-        		String beaconID = advertisingPackage.getProximityUUID().toString();               		
-        		if(UUIDMap.containsKey(beaconID))
-        			return true;
+        		String beaconID = advertisingPackage.getProximityUUID().toString();   
+        		if(UUIDMap.containsKey(beaconID)){
+            		Log.v(TAG, "Found beacon with ID " + beaconID + " " + advertisingPackage.getMajor());
+            		return true;
+        		}
         		return false;
         	}
         	}); 

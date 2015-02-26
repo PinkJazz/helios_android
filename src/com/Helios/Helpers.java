@@ -91,8 +91,8 @@ class Helpers {
 		
 		m.put(Config.DYNAMIC_PROXIMITY_UUID, false);
 		m.put(Config.STATIC_PROXIMITY_UUID, false);
-		m.put(Config.OLD_PROXIMITY_UUID, false);
-		m.put(Config.OLD_STATIC_PROXIMITY_UUID, false);
+	//	m.put(Config.OLD_PROXIMITY_UUID, false);
+	//	m.put(Config.OLD_STATIC_PROXIMITY_UUID, false);
 		
 		return m;
 	}
