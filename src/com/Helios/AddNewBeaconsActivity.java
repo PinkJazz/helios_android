@@ -149,8 +149,15 @@ public class AddNewBeaconsActivity extends Activity{
 	private void initializeBeaconDisplay() {
 		runOnUiThread(new Runnable() {
 			public void run(){
-				headerTextview.setText("Updating " + monitoredBeacons.size() + " beacons");
-				activateButton.setEnabled(true);
+				if (monitoredBeacons.size() > 0){
+					headerTextview.setText("Updating " + monitoredBeacons.size() + " beacons");
+					activateButton.setEnabled(true);
+				}
+				else{
+					Helpers.showAlert(AddNewBeaconsActivity.this, "No beacons to add",
+								"You do not have any new beacons waiting to be added");
+					AddNewBeaconsActivity.this.finish();
+				}
 			}
 		});
 		int r = 0;
@@ -164,7 +171,7 @@ public class AddNewBeaconsActivity extends Activity{
 		}
 	}
 
-    /** Called by button in the layout */
+    /** Called by Activate beacons button in the layout */
     public void addBeacons(View view) {
     	for(String beaconID: monitoredBeacons.keySet()){
     		BeaconInfo oldBeaconInfo = monitoredBeacons.get(beaconID);
@@ -173,6 +180,7 @@ public class AddNewBeaconsActivity extends Activity{
     		Intent intent = new Intent(this, ChangeBeaconDetailsActivity.class);
     		intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
     		intent.putExtra(LoginActivity.TOKEN_MSG, mToken);
+    		intent.putExtra(ChangeBeaconDetailsActivity.REQUEST_TYPE_MSG, ChangeBeaconDetailsActivity.ADD_BEACON_REQUEST);
     		
 			intent.putExtra("current_UUID", oldBeaconInfo.proximityUUID);
 			intent.putExtra("current_friendlyName", oldBeaconInfo.friendlyName);
@@ -189,7 +197,7 @@ public class AddNewBeaconsActivity extends Activity{
 			intent.putExtra("new_powerLevel", newBeaconInfo.powerLevel);
 			
 			this.startActivity(intent);    	
-	    }
+	    } // for each beacon
     }
 
 	private class BeaconListDownloader implements Runnable {

@@ -37,7 +37,6 @@ import com.kontakt.sdk.android.manager.BeaconManager;
 public class ChangeBeaconDetailsActivity extends Activity implements BeaconManager.RangingListener{
 	
 	BeaconManager beaconManager;
-	private static int REQUEST_CODE_ENABLE_BLUETOOTH = 1001;
 	private final String TAG = "Helios_" + getClass().getSimpleName();
 	
 	// used to access UI thread for toasts
@@ -53,6 +52,12 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
     private String mToken;
     private boolean updated = false;
     BeaconInfo newBeaconInfo;
+    int beaconID;   // only sent if this is a modify beacon request. otherwise default value is -1
+    private int requestType;
+    
+    static String REQUEST_TYPE_MSG = "Request Type";
+    static int ADD_BEACON_REQUEST = 1;
+    static int MODIFY_BEACON_REQUEST = 2;
     
     private boolean IS_RANGING = false; // monitors whether Kontakt.io ranging is currently active 
     
@@ -64,6 +69,9 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         Intent intent = getIntent();
         mEmail = intent.getStringExtra(LoginActivity.EMAIL_MSG);
         mToken = intent.getStringExtra(LoginActivity.TOKEN_MSG);
+        requestType = intent.getIntExtra(ChangeBeaconDetailsActivity.REQUEST_TYPE_MSG, ADD_BEACON_REQUEST);
+        
+        beaconID = intent.getIntExtra("beaconID", -1);
         
         UUID = intent.getStringExtra("current_UUID");
         friendlyName = intent.getStringExtra("current_friendlyName");
@@ -87,7 +95,7 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         final String objectBeaconProxID = UUID;
 
         beaconManager = BeaconManager.newInstance(this);
-        beaconManager.setRssiCalculator(RssiCalculators.newLimitedMeanRssiCalculator(5));
+        beaconManager.setRssiCalculator(RssiCalculators.newLimitedMeanRssiCalculator(1));
         beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
         beaconManager.setForceScanConfiguration(ForceScanConfiguration.DEFAULT);
         beaconManager.addFilter(new Filters.CustomFilter() { //create your customized filter
@@ -170,7 +178,7 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
     	Log.i(TAG, "New beacon info is " + modifiedBeaconInfo.proximityUUID + " " + 
     					modifiedBeaconInfo.powerLevel); 
     	new ServletUploaderAsyncTask(this, constructPayload(modifiedBeaconInfo), 
-    			Config.NEW_BEACON_ADDED_POST_TARGET).execute();
+    			Config.ADD_MODIFY_BEACON_POST_TARGET).execute();
     	finish();
     }
     
@@ -181,7 +189,10 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
 
 			payloadJSONObj.put("Email", mEmail);
 			payloadJSONObj.put("Token", mToken);
-			payloadJSONObj.put("query", "new_beacon");
+			if(requestType == ADD_BEACON_REQUEST)
+				payloadJSONObj.put("query", "new_beacon");
+			else
+				payloadJSONObj.put("query", "modified_beacon");
 			
 			// put in details of observed beacon
 			JSONObject beaconObj = new JSONObject();
@@ -191,6 +202,7 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
 			beaconObj.put("New_powerLevel", Integer.toString(modifiedBeaconInfo.powerLevel));
 			beaconObj.put("New_password", modifiedBeaconInfo.password);
 			beaconObj.put("New_Friendly_name", modifiedBeaconInfo.friendlyName);
+			beaconObj.put("BeaconId", beaconID);
 			
 			payloadJSONObj.put("Beacon", beaconObj);
 			Log.i(TAG, "Generated payload string " + payloadJSONObj.toString());

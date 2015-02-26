@@ -15,6 +15,7 @@ class BeaconInfo {
 	String friendlyName = "NONE";
 	String password;
 	int powerLevel;
+	int beaconID;   // optional identifier for beacon in DB
 	
 	BeaconInfo(BeaconDevice beacon, Location mLoc){
 		this.beacon = beacon;
@@ -34,13 +35,15 @@ class BeaconInfo {
 		this.friendlyName = friendlyName;
 	}
 
+	BeaconInfo(String proximityUUID, int major, int minor, String friendlyName, String password, int powerLevel, int beaconID){
+		this(proximityUUID, major, minor, friendlyName, password, powerLevel);
+		this.beaconID = beaconID;
+	}
+
 	BeaconInfo(String proximityUUID, int major, int minor, String friendlyName, String password, int powerLevel){
-		this.proximityUUID = proximityUUID;
-		this.major = major;
-		this.minor = minor;
-		this.friendlyName = friendlyName;
+		this(proximityUUID, major, minor, friendlyName);
 		this.password = password;
-		this.powerLevel = powerLevel;
+		this.powerLevel = powerLevel;		
 	}
 
 	String getBeaconUniqueKey(){
@@ -79,7 +82,7 @@ class BeaconInfo {
 	
 	boolean isStaticBeacon(){
 		// true if the major ID of the beacon is within the range specified in the Config file
-		if(proximityUUID.equals(Config.OLD_STATIC_PROXIMITY_UUID))
+		if(proximityUUID.equals(Config.STATIC_PROXIMITY_UUID))
 			return true;
 		return false;
 	}

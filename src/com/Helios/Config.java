@@ -23,8 +23,6 @@ final class Config {
 	static long MAX_VIDEO_FILE_SIZE = 50000000;
 	
 	// parameters to monitor Bluetooth beacons
-	static final String OLD_PROXIMITY_UUID = "f7826da6-4fa2-4e98-8024-bc5b71e0893e"; 
-	static final String OLD_STATIC_PROXIMITY_UUID = "f7826da6-4fa2-4e98-8024-bc5b71e0893f"; 
 
 	public static final String STATIC_PROXIMITY_UUID = "08239eff-32e7-4721-a56f-ee463b75d4e8"; 
 	public static final String DYNAMIC_PROXIMITY_UUID = "c1df3fd9-1e95-4248-981f-4668d4eb6539"; 
@@ -37,11 +35,10 @@ final class Config {
 	static boolean WiFiUploadOnly = true;
 	static boolean DEBUG_SQS_ENABLED = true; // should be true unless we are debugging
 	
-	// target address to HTTP POST beacon data
-	// target address to HTTP POST beacon data
+	// target addresses to HTTP POST beacon data
 	static final String BEACON_UPLOAD_POST_TARGET = "http://50.112.176.173:8080/test";	
 	static final String BEACON_LIST_DOWNLOAD_POST_TARGET = "http://50.112.176.173:8080/db";
-	static final String NEW_BEACON_ADDED_POST_TARGET = "http://50.112.176.173:8080/db";
+	static final String ADD_MODIFY_BEACON_POST_TARGET = "http://50.112.176.173:8080/db";
 	
 	static final String DEBUG_TEST_POST_TARGET = "http://160.39.241.244:8080/test";
 	

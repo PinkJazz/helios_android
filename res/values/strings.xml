@@ -6,6 +6,7 @@
     <string name="bluetooth">Log in and monitor for beacons</string>
     <string name="bluetoothService">Log in and background monitor for beacons</string>
     <string name="AddNewBeacons">Add New Beacons</string>
+    <string name="ModifyBeacons">Modify Beacons</string>
     <string name="Logout">Log out</string>
     <string name="account">Account</string>
     <string name="unrecoverable_error">Unrecoverable Play Services error</string>

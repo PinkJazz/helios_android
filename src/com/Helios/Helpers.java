@@ -22,7 +22,7 @@ class Helpers {
 	private Helpers(){}	// not to be instantiated
 	
 	static enum ActivityType {RECORD_VIDEO, FOREGROUND_BLUETOOTH_MONITOR, BACKGROUND_BLUETOOTH_MONITOR
-				, ADD_NEW_BEACONS}
+				, ADD_NEW_BEACONS, MODIFY_BEACONS}
 
 	static boolean isWifiConnected(Context con){
 		ConnectivityManager connectivity = (ConnectivityManager) con.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -91,8 +91,6 @@ class Helpers {
 		
 		m.put(Config.DYNAMIC_PROXIMITY_UUID, false);
 		m.put(Config.STATIC_PROXIMITY_UUID, false);
-	//	m.put(Config.OLD_PROXIMITY_UUID, false);
-	//	m.put(Config.OLD_STATIC_PROXIMITY_UUID, false);
 		
 		return m;
 	}
