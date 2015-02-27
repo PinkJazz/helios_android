@@ -7,10 +7,12 @@ import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 
 import org.apache.http.client.ClientProtocolException;
 import org.json.JSONArray;
@@ -52,6 +54,7 @@ public class AddNewBeaconsActivity extends Activity{
 	
 	private Map<String, BeaconInfo> monitoredBeacons = new HashMap<String, BeaconInfo>();
 	private Map<String, BeaconInfo> newBeaconDetails = new HashMap<String, BeaconInfo>();
+	private Queue<String> newBeaconList = new ArrayDeque<String>();
 	
 	private Map<String, TextView> beaconDisplay = new HashMap<String, TextView>();
 
@@ -146,7 +149,25 @@ public class AddNewBeaconsActivity extends Activity{
 		unregisterReceiver(mReceiver);
 	}
 
-	private void initializeBeaconDisplay() {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == Helpers.CHANGE_BEACON_DETAILS) {
+            String modifiedBeaconName = data.getStringExtra(ChangeBeaconDetailsActivity.MODIFIED_BEACON_NAME);
+            if (resultCode == RESULT_OK) {
+            	// changed beacon details so let's modify the next one
+                Log.v(TAG, modifiedBeaconName + " successfully modified");
+            } else if (resultCode == RESULT_CANCELED) {
+            	Log.v(TAG, modifiedBeaconName + " NOT successfully modified");
+            }
+            // modify the next beacon
+     //       modifyNextBeacon();
+            finish();
+            return;
+        } 
+    }
+
+    private void initializeBeaconDisplay() {
 		runOnUiThread(new Runnable() {
 			public void run(){
 				if (monitoredBeacons.size() > 0){
@@ -173,32 +194,45 @@ public class AddNewBeaconsActivity extends Activity{
 
     /** Called by Activate beacons button in the layout */
     public void addBeacons(View view) {
-    	for(String beaconID: monitoredBeacons.keySet()){
-    		BeaconInfo oldBeaconInfo = monitoredBeacons.get(beaconID);
-    		BeaconInfo newBeaconInfo = newBeaconDetails.get(beaconID);
-    		
-    		Intent intent = new Intent(this, ChangeBeaconDetailsActivity.class);
-    		intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
-    		intent.putExtra(LoginActivity.TOKEN_MSG, mToken);
-    		intent.putExtra(ChangeBeaconDetailsActivity.REQUEST_TYPE_MSG, ChangeBeaconDetailsActivity.ADD_BEACON_REQUEST);
-    		
-			intent.putExtra("current_UUID", oldBeaconInfo.proximityUUID);
-			intent.putExtra("current_friendlyName", oldBeaconInfo.friendlyName);
-			intent.putExtra("current_password", oldBeaconInfo.password);
-			intent.putExtra("current_major", oldBeaconInfo.major);
-			intent.putExtra("current_minor", oldBeaconInfo.minor);
-			intent.putExtra("current_powerLevel", oldBeaconInfo.powerLevel);
-			
-			intent.putExtra("new_UUID", newBeaconInfo.proximityUUID);
-			intent.putExtra("new_friendlyName", newBeaconInfo.friendlyName);
-			intent.putExtra("new_password", newBeaconInfo.password);
-			intent.putExtra("new_major", newBeaconInfo.major);
-			intent.putExtra("new_minor", newBeaconInfo.minor);
-			intent.putExtra("new_powerLevel", newBeaconInfo.powerLevel);
-			
-			this.startActivity(intent);    	
-	    } // for each beacon
+    	newBeaconList.addAll(monitoredBeacons.keySet());
+    	modifyNextBeacon();
     }
+
+	private void modifyNextBeacon() {
+		// pops next beacon from the queue and starts activity to modify it
+		if (!newBeaconList.isEmpty()){
+    		String beaconID = newBeaconList.remove();
+			BeaconInfo oldBeaconInfo = monitoredBeacons.get(beaconID);
+			BeaconInfo newBeaconInfo = newBeaconDetails.get(beaconID);
+	    	Intent intent = constructModifyBeaconIntent(oldBeaconInfo, newBeaconInfo);
+//	    	intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+	    	
+	    	startActivityForResult(intent, Helpers.CHANGE_BEACON_DETAILS);
+    	}
+	}
+
+	private Intent constructModifyBeaconIntent(BeaconInfo oldBeaconInfo, BeaconInfo newBeaconInfo) {
+		// construct Intent to modify beacon from old to new details
+		Intent intent = new Intent(this, ChangeBeaconDetailsActivity.class);
+		intent.putExtra(LoginActivity.EMAIL_MSG, mEmail);
+		intent.putExtra(LoginActivity.TOKEN_MSG, mToken);
+		intent.putExtra(ChangeBeaconDetailsActivity.REQUEST_TYPE_MSG, ChangeBeaconDetailsActivity.ADD_BEACON_REQUEST);
+		
+		intent.putExtra("current_UUID", oldBeaconInfo.proximityUUID);
+		intent.putExtra("current_friendlyName", oldBeaconInfo.friendlyName);
+		intent.putExtra("current_password", oldBeaconInfo.password);
+		intent.putExtra("current_major", oldBeaconInfo.major);
+		intent.putExtra("current_minor", oldBeaconInfo.minor);
+		intent.putExtra("current_powerLevel", oldBeaconInfo.powerLevel);
+		
+		intent.putExtra("new_UUID", newBeaconInfo.proximityUUID);
+		intent.putExtra("new_friendlyName", newBeaconInfo.friendlyName);
+		intent.putExtra("new_password", newBeaconInfo.password);
+		intent.putExtra("new_major", newBeaconInfo.major);
+		intent.putExtra("new_minor", newBeaconInfo.minor);
+		intent.putExtra("new_powerLevel", newBeaconInfo.powerLevel);
+		return intent;
+	}
 
 	private class BeaconListDownloader implements Runnable {
 		// must be called after logging in via Cognito

@@ -56,6 +56,7 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
     private int requestType;
     
     static String REQUEST_TYPE_MSG = "Request Type";
+    static String MODIFIED_BEACON_NAME = "Modified Beacon Name"; //used when sending result back via Intent
     static int ADD_BEACON_REQUEST = 1;
     static int MODIFY_BEACON_REQUEST = 2;
     
@@ -93,7 +94,12 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         Log.i(TAG, "Change Activity changing to " + new_UUID + " " + new_friendlyName + " " + new_major + " " + new_minor);
         
         final String objectBeaconProxID = UUID;
-
+        
+        if((beaconManager != null) && beaconManager.isConnected()){
+        	beaconManager.disconnect();
+        	beaconManager = null;
+        }
+        
         beaconManager = BeaconManager.newInstance(this);
         beaconManager.setRssiCalculator(RssiCalculators.newLimitedMeanRssiCalculator(1));
         beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
@@ -102,8 +108,9 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         	@Override
         	public Boolean apply(AdvertisingPackage advertisingPackage) {
         		String beaconID = advertisingPackage.getProximityUUID().toString();         		
-        		if (beaconID.equals(objectBeaconProxID))
+        		if (beaconID.equals(objectBeaconProxID)){
         			return true;
+        		}
         		return false;
         	}
         	});
@@ -136,12 +143,32 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         if(beaconManager != null)
         	beaconManager.disconnect();
         beaconManager = null;
+        Log.v(TAG, "ChangeBeaconDetailsActivity destroyed");
+        super.onDestroy();
+
     }
 
+    public void onBackPressed(){
+    	// returns an intent if user exits by backpressing
+    	Intent intent = new Intent();
+    	intent.putExtra(MODIFIED_BEACON_NAME, friendlyName);
+    	
+    	setResult(RESULT_CANCELED, intent);
+    	super.onBackPressed();    	
+    }
+    
+    private void returnResult(int resultType){
+    	// returns resultType along with beacon name
+    	Intent intent = new Intent();
+    	intent.putExtra(MODIFIED_BEACON_NAME, friendlyName);
+    	
+    	setResult(resultType, intent);
+    	finish();
+    }
+    
     private void connect() {
         try {
             beaconManager.connect(new OnServiceBoundListener() {
@@ -163,11 +190,11 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         } catch (RemoteException e) {
         	Log.e(TAG, "Remote exception " + e.getMessage());
         	Helpers.showAlert(ChangeBeaconDetailsActivity.this, "Unrecoverable beacon error", "Unrecoverable beacon error");;
-            finish();
+            returnResult(RESULT_CANCELED);
         } catch (Exception e) {
         	Log.e(TAG, "Exception " + e.getMessage());
         	Helpers.showAlert(ChangeBeaconDetailsActivity.this, "Unrecoverable beacon error", "Unrecoverable beacon error");;
-            finish();
+            returnResult(RESULT_CANCELED);
         }
         
     }
@@ -179,7 +206,7 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
     					modifiedBeaconInfo.powerLevel); 
     	new ServletUploaderAsyncTask(this, constructPayload(modifiedBeaconInfo), 
     			Config.ADD_MODIFY_BEACON_POST_TARGET).execute();
-    	finish();
+    	returnResult(RESULT_OK);
     }
     
 	private String constructPayload(BeaconInfo modifiedBeaconInfo) {
@@ -205,7 +232,6 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
 			beaconObj.put("BeaconId", beaconID);
 			
 			payloadJSONObj.put("Beacon", beaconObj);
-			Log.i(TAG, "Generated payload string " + payloadJSONObj.toString());
 			return payloadJSONObj.toString();
 
 		} catch (JSONException jse) {

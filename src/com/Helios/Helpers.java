@@ -21,6 +21,8 @@ class Helpers {
 
 	private Helpers(){}	// not to be instantiated
 	
+	static int CHANGE_BEACON_DETAILS = 1001; // used as Activity request code for ChangeBeaconDetails Activity 
+
 	static enum ActivityType {RECORD_VIDEO, FOREGROUND_BLUETOOTH_MONITOR, BACKGROUND_BLUETOOTH_MONITOR
 				, ADD_NEW_BEACONS, MODIFY_BEACONS}
 

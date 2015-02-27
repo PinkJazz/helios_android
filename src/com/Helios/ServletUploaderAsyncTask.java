@@ -70,7 +70,7 @@ class ServletUploaderAsyncTask extends AsyncTask<Void, Void, Boolean>{
 			return false;
 		}
 		// connection was opened successfully if we got here
-		Log.i(TAG, "POSTing " + payloadJSONString);
+		Log.v(TAG, "POSTing " + payloadJSONString);
 		try {			
 			conn.setDoOutput(true);
 			conn.setRequestMethod("POST");  
