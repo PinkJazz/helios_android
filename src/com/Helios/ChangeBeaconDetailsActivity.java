@@ -74,15 +74,15 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         
         beaconID = intent.getIntExtra("beaconID", -1);
         
-        UUID = intent.getStringExtra("current_UUID");
-        friendlyName = intent.getStringExtra("current_friendlyName");
-        password = intent.getStringExtra("current_password");
+        UUID = intent.getStringExtra("current_UUID").trim();
+        friendlyName = intent.getStringExtra("current_friendlyName").trim();
+        password = intent.getStringExtra("current_password").trim();
         major = intent.getIntExtra("current_major", 0);
         minor = intent.getIntExtra("current_minor", 0);
         
-        String new_UUID = intent.getStringExtra("new_UUID");
-        String new_friendlyName = intent.getStringExtra("new_friendlyName");
-        String new_password = intent.getStringExtra("new_password");
+        String new_UUID = intent.getStringExtra("new_UUID").trim();
+        String new_friendlyName = intent.getStringExtra("new_friendlyName").trim();
+        String new_password = intent.getStringExtra("new_password").trim();
         int new_major = intent.getIntExtra("new_major", 0);
         int new_minor = intent.getIntExtra("new_minor", 0);
         
@@ -91,15 +91,15 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         newBeaconInfo.powerLevel = intent.getIntExtra("new_powerLevel", 3);
         
         Log.i(TAG, "Change Activity received " + UUID + " " + friendlyName + " " + major + " " + minor);
-        Log.i(TAG, "Change Activity changing to " + new_UUID + " " + new_friendlyName + " " + new_major + " " + new_minor);
-        
-        final String objectBeaconProxID = UUID;
+        Log.i(TAG, "Change Activity changing to " + new_UUID + " " + new_friendlyName + " " + new_major + " " + new_minor);        
         
         if((beaconManager != null) && beaconManager.isConnected()){
         	beaconManager.disconnect();
         	beaconManager = null;
         }
         
+        final String objectBeaconProxID = UUID;
+
         beaconManager = BeaconManager.newInstance(this);
         beaconManager.setRssiCalculator(RssiCalculators.newLimitedMeanRssiCalculator(1));
         beaconManager.setMonitorPeriod(MonitorPeriod.MINIMAL);
@@ -108,6 +108,10 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
         	@Override
         	public Boolean apply(AdvertisingPackage advertisingPackage) {
         		String beaconID = advertisingPackage.getProximityUUID().toString();         		
+        		String text = "beacon " + advertisingPackage.getProximityUUID() + " name " + advertisingPackage.getBeaconUniqueId()
+       				 + " major = " + advertisingPackage.getMajor() + " minor = " + advertisingPackage.getMinor();
+        		Log.v(TAG, "Saw " + text);
+
         		if (beaconID.equals(objectBeaconProxID)){
         			return true;
         		}
@@ -202,7 +206,7 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
     public void onBeaconModifiedSuccess(BeaconInfo modifiedBeaconInfo){
     	// Callback method from BeaconModifier when beacon has been changed successfully
     	Log.i(TAG, "Beacon " + modifiedBeaconInfo.friendlyName + " successfully modified");
-    	Log.i(TAG, "New beacon info is " + modifiedBeaconInfo.proximityUUID + " " + 
+    	Log.i(TAG, "New beacon info is " + modifiedBeaconInfo.proximityUUID + " power level = " + 
     					modifiedBeaconInfo.powerLevel); 
     	new ServletUploaderAsyncTask(this, constructPayload(modifiedBeaconInfo), 
     			Config.ADD_MODIFY_BEACON_POST_TARGET).execute();
@@ -244,15 +248,17 @@ public class ChangeBeaconDetailsActivity extends Activity implements BeaconManag
     public void onBeaconsDiscovered(final Region region, final List<BeaconDevice> beacons) {
     	for (final BeaconDevice beacon: beacons){
         	String ID = beacon.getBeaconUniqueId();        	
+    		String text = "beacon " + beacon.getProximityUUID() + " name " + beacon.getBeaconUniqueId()
+    				 + " major = " + beacon.getMajor() + " minor = " + beacon.getMinor();
+    		Log.v(TAG, "Discovered " + text);
     		
         	if(!beaconMap.containsKey(ID)){
         		beaconMap.put(ID, true);
 	    		if(isTargetBeacon(beacon) && !updated){
-	    			updated = true;
-	        		String text = "Discovered beacon " + beacon.getProximityUUID() + " name " + beacon.getBeaconUniqueId();
-	    			Helpers.displayToast(handler, ChangeBeaconDetailsActivity.this, text, Toast.LENGTH_SHORT);
+	    			updated = true;	    			
+	    			Helpers.displayToast(handler, ChangeBeaconDetailsActivity.this, "Recognized " + text, Toast.LENGTH_SHORT);
 	        		beacon.setPassword(password.getBytes());
-		    		Log.i(TAG, text);
+		    		Log.i(TAG, "Recognized " + text);
 
 		    		BeaconInfo beaconInfo = new BeaconInfo(beacon, null);
 		    		beaconInfo.friendlyName = friendlyName;

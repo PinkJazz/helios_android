@@ -1,8 +1,5 @@
 package com.Helios;
 
-import java.util.UUID;
-
-import android.app.Activity;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -73,7 +70,7 @@ class BeaconModifier implements Runnable{
 			beaconConn.overwritePowerLevel(newBeaconInfo.powerLevel, new KontaktBeaconWriteListener(this, beaconConn, "Power Level"));
 			break;
 		case 1:
-			beaconConn.overwriteModelName("Helios_" + newBeaconInfo.friendlyName, new KontaktBeaconWriteListener(this, beaconConn, "modelName"));
+			beaconConn.overwriteModelName("Helios", new KontaktBeaconWriteListener(this, beaconConn, "modelName"));
 			break;
 		}
 	}
