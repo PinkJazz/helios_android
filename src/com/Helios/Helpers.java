@@ -13,6 +13,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Handler;
+import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -78,8 +79,6 @@ class Helpers {
     }
     
 	static void updateTextView(Handler handler, final TextView tv, final String text) {
-		// TODO: there is probably a cleaner way to replace calls to this method
-		// with a call to runOnUiThread
 		handler.post(new Runnable() {
 			public void run() {
 				tv.setText(text);

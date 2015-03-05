@@ -35,7 +35,7 @@ class KontaktBeaconManagerBridge {
         	public Boolean apply(AdvertisingPackage advertisingPackage) {
         		String beaconID = advertisingPackage.getProximityUUID().toString();   
         		if(UUIDMap.containsKey(beaconID)){
-            		Log.v(TAG, "Found beacon with ID " + beaconID + " " + advertisingPackage.getMajor());
+            		Log.v(TAG, "Found beacon with ID " + beaconID + " " + advertisingPackage.getBeaconUniqueId());
             		return true;
         		}
         		return false;

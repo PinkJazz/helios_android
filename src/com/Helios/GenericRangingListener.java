@@ -29,7 +29,6 @@ class GenericRangingListener implements BeaconManager.RangingListener{
 		for (BeaconDevice beacon : beacons) {
 			BeaconInfo beaconInfo = new BeaconInfo(beacon, null);
 			beaconID = beaconInfo.getBeaconUniqueKey();
-			beaconInfo.friendlyName = monitoredBeacons.get(beaconID).friendlyName;
 			
 			Log.v(TAG, "Ranging picked up " + beaconInfo.friendlyName + " " + beaconID);
 			if (beaconInfo.isStaticBeacon()){
@@ -37,11 +36,11 @@ class GenericRangingListener implements BeaconManager.RangingListener{
 				updateReceiver.processStaticBeacon(beaconInfo);
 				continue;
 			}
-			// if we picked up some random beacon that does not belong to this
-			// user, ignore it. This also ignores static beacons so that they do not get uploaded
+			// if we picked up some beacon that does not belong to this user, ignore it. 
 			if (!monitoredBeacons.containsKey(beaconID))
 				continue;
 
+			beaconInfo.friendlyName = monitoredBeacons.get(beaconID).friendlyName;
 			updateReceiver.processMonitoredBeacon(beaconInfo);
 		}
 	}

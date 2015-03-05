@@ -185,6 +185,7 @@ public class AddNewBeaconsActivity extends Activity{
 		for (String beaconID : monitoredBeacons.keySet()) {
 			if (r < textViews.size()) {
 				beaconDisplay.put(beaconID, textViews.get(r));
+				Log.v(TAG, "Added " + beaconID + " to beaconDisplay Map");
 				Helpers.updateTextView(handler, textViews.get(r), 
 						monitoredBeacons.get(beaconID).friendlyName);
 			}

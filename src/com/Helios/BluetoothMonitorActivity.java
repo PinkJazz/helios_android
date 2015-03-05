@@ -206,6 +206,11 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 
 	private void initializeBeaconDisplay() {
 		int r = 0;
+		if(monitoredBeacons.size() > textViews.size()){
+			Log.w(TAG, "Monitoring more beacons than can be displayed");
+			Helpers.displayToast(handler, con, "Monitoring more beacons than text views to display", Toast.LENGTH_LONG);
+		}
+		
 		for (String beaconID : monitoredBeacons.keySet()) {
 			if (r < textViews.size()) {
 				beaconDisplay.put(beaconID, textViews.get(r));
@@ -426,12 +431,12 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 				minor = beacon.getInt("Minor_id");
 				
 				BeaconInfo beac = new BeaconInfo(uniqueID, major, minor, friendlyName);
-				monitoredBeacons.put(beac.getBeaconUniqueKey(), beac);
-
-				Log.i(TAG_DOWNLOAD,
-						"Monitoring beacon " + uniqueID + " " + major + " "
-								+ minor + " " + friendlyName);
-				Log.i(TAG_DOWNLOAD, "Added beacon " + beac.getBeaconUniqueKey());				
+				if (!beac.isStaticBeacon()){
+					monitoredBeacons.put(beac.getBeaconUniqueKey(), beac);
+					Log.i(TAG_DOWNLOAD,
+							"Monitoring beacon " + uniqueID + " " + major + " "
+									+ minor + " " + friendlyName);
+				}
 			}			
 		}
 		
