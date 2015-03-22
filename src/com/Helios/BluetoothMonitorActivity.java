@@ -9,6 +9,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -53,6 +54,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 
 	private CognitoHelper cognitoHelperObj;
 
+	private int MAX_STATIC_BEACONS_DISPLAYED;
 	// used for location services using new Location API
 	private GoogleApiClient mGoogleApiClient;
 	private Location mLocation;
@@ -126,6 +128,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		// download list of beacons belonging to this user
 		headerTextview.setText("Downloading beacons to monitor. Please wait...");
 		new Thread(new BeaconListDownloader(this, mEmail, mToken)).start();
+		handler.post(mClearVisibilityTask);
 	}
 
 	private void populateTextViewsList() {
@@ -140,6 +143,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_1));
 		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_2));
 		staticBeaconTextViews.add((TextView) findViewById(R.id.stat_3));
+		MAX_STATIC_BEACONS_DISPLAYED = 3;
 	}
 
 	protected void onStart() {
@@ -180,6 +184,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		if (mGoogleApiClient.isConnected())
 			mGoogleApiClient.disconnect();
 		unregisterReceiver(mReceiver);
+        handler.removeCallbacks(mClearVisibilityTask);
 	}
 
 	private void disconnectBeaconManager() {
@@ -240,6 +245,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 		beaconUniqueId = beaconInfo.getBeaconUniqueId();
 
 		text = "Discovered beacon name " + beaconUniqueId;
+		discoveredBeacons.put(beaconID, beaconInfo);
 		Log.v(TAG, text + " " + beaconID + " " + prox);
 
 		String friendlyName = monitoredBeacons.get(beaconID).friendlyName;
@@ -250,8 +256,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 
 		if (isBeaconUploadable(beaconInfo)) {
 			beaconInfo.friendlyName = friendlyName;
-			Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);
-			discoveredBeacons.put(beaconID, beaconInfo);
+			Log.i(TAG, "Inserted " + beaconUniqueId + " " + beaconID + " " + prox);			
 			new BeaconUploader(this, mEmail, mToken, cognitoHelperObj, beaconInfo, staticBeacons,
 					System.currentTimeMillis(), Config.WiFiUploadOnly).execute();
 		}
@@ -260,13 +265,17 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 	private void displayStaticBeacons() {
 		// show the static beacons onscreen
 		List<BeaconInfo> beaconIDs = new ArrayList<BeaconInfo>(staticBeacons.values());
-		for (int i = 0; i < 3 && i < beaconIDs.size(); i++) {
+		for (int i = 0; i < MAX_STATIC_BEACONS_DISPLAYED && i < beaconIDs.size(); i++) {
 			StringBuffer textViewData = new StringBuffer(beaconIDs.get(i).getBeaconUniqueId() + " - "
 					+ beaconIDs.get(i).getProximity());
 			textViewData.append(" RSSI - " + beaconIDs.get(i).getRSSI());
 
 			Helpers.updateTextView(handler, staticBeaconTextViews.get(i), textViewData.toString());
 		}
+		// clear text views if there are more text views than visible static beacons
+		for (int i = beaconIDs.size(); i < MAX_STATIC_BEACONS_DISPLAYED ; i++) {
+				Helpers.updateTextView(handler, staticBeaconTextViews.get(i), "");
+		}	
 	}
 
 	private Map<String, BeaconInfo> updateStaticBeaconList(BeaconInfo beacon) {
@@ -295,7 +304,7 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 	}
 
 	private boolean isBeaconUploadable(BeaconInfo newBeaconInfo) {
-		// decides whether a beacon observation should be uploaded to S3 or not
+		// decides whether a beacon observation should be uploaded to DB or not
 		// depending on when it was last seen
 		String beaconID = newBeaconInfo.getBeaconUniqueKey();
 		BeaconInfo beaconObs = discoveredBeacons.get(beaconID);
@@ -509,4 +518,41 @@ public class BluetoothMonitorActivity extends Activity implements GenericBeaconU
 			return requestObj;
 		}
 	}
+	
+    // task that runs every second to clear the field that indicates if the beacon is visible
+    private Runnable mClearVisibilityTask = new Runnable(){
+    	public void run(){
+    		// first check discovered beacons to see if any have dropped out of view in the last second
+    		long currentTime = System.currentTimeMillis();
+    		Iterator<Map.Entry<String, BeaconInfo>> it = discoveredBeacons.entrySet().iterator();
+    		Map.Entry<String, BeaconInfo> entry;
+    		BeaconInfo observedBeacon;
+
+    		while(it.hasNext()){
+    			entry = it.next();
+    			observedBeacon = entry.getValue();
+    			 // have we seen this beacon in the last second? 
+    			if ((currentTime - observedBeacon.getTimestamp()) > 2000){ 
+    				Helpers.updateTextView(handler, beaconDisplay.get(entry.getKey()), "");
+					Log.d(TAG, "Removed " + observedBeacon.friendlyName + " in timerTask");
+    				it.remove();
+    			}
+    		}
+    		// now do the same for static beacons
+    		it = staticBeacons.entrySet().iterator();
+    		
+    		while(it.hasNext()){
+    			entry = it.next();
+    			observedBeacon = entry.getValue();
+				long beaconTimestamp = observedBeacon.getTimestamp();
+				if (currentTime - beaconTimestamp > 5000) {
+					Log.d(TAG, "Removed " + observedBeacon.friendlyName + " in timerTask");
+					it.remove(); // removes current entry
+				}
+			} // for
+			displayStaticBeacons();
+    		handler.postDelayed(this, 2000);
+    	}
+    };
+
 }

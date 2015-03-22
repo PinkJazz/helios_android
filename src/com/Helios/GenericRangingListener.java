@@ -30,7 +30,14 @@ class GenericRangingListener implements BeaconManager.RangingListener{
 			BeaconInfo beaconInfo = new BeaconInfo(beacon, null);
 			beaconID = beaconInfo.getBeaconUniqueKey();
 			
-			Log.v(TAG, "Ranging picked up " + beaconInfo.friendlyName + " " + beaconID);
+			if(System.currentTimeMillis() - beacon.getTimestamp() > 1000){
+				// system appears to queue up calls and calls this function up to 5-10 seconds
+				// after the actual observation - we ignore these observations since they are stale
+				Log.w(TAG, "Called for " + beaconID + " more than a second after observation " + Long.toString(System.currentTimeMillis() - beacon.getTimestamp()));
+				continue;
+			}
+			
+			Log.v(TAG, "Ranging picked up " + beaconID);
 			if (beaconInfo.isStaticBeacon()){
 			// let the update receiver know that a static beacon was discovered
 				updateReceiver.processStaticBeacon(beaconInfo);
